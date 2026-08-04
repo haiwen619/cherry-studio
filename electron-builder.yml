@@ -1,5 +1,5 @@
-appId: com.kangfenmao.CherryStudio
-productName: Cherry Studio
+appId: com.haiwen.haiwenna.cherrystudio
+productName: HaiwenNa Studio
 electronLanguages:
   - zh-CN
   - zh-TW
@@ -14,7 +14,7 @@ directories:
   buildResources: build
 
 protocols:
-  - name: Cherry Studio
+  - name: HaiwenNa Studio
     schemes:
       - cherrystudio
 files:
@@ -76,7 +76,7 @@ asarUnpack:
   - "node_modules/@img/sharp-*/**"
 
 win:
-  executableName: Cherry Studio
+  executableName: HaiwenNaStudio
   artifactName: ${productName}-${version}-${arch}-setup.${ext}
   target:
     - target: nsis
@@ -113,7 +113,7 @@ dmg:
   writeUpdateInfo: false
 linux:
   artifactName: ${productName}-${version}-${arch}.${ext}
-  executableName: CherryStudio
+  executableName: HaiwenNaStudio
   target:
     - target: AppImage
     - target: deb
@@ -122,8 +122,8 @@ linux:
   category: Utility
   desktop:
     entry:
-      Name: Cherry Studio
-      StartupWMClass: CherryStudio
+      Name: HaiwenNa Studio
+      StartupWMClass: HaiwenNaStudio
   mimeTypes:
     - x-scheme-handler/cherrystudio
 rpm:
