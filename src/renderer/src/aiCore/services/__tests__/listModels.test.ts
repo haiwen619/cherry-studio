@@ -6,6 +6,27 @@ import type { Provider } from '@renderer/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetFromApi = vi.fn()
+const mockCopilotGetToken = vi.fn()
+const mockVertexGetAuthHeaders = vi.fn()
+const mockToastError = vi.fn()
+const createMockStoreState = () => ({
+  copilot: {
+    defaultHeaders: {}
+  },
+  llm: {
+    settings: {
+      vertexai: {
+        projectId: 'test-project',
+        location: 'us-central1',
+        serviceAccount: {
+          privateKey: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+          clientEmail: 'vertex@test-project.iam.gserviceaccount.com'
+        }
+      }
+    }
+  }
+})
+let mockStoreState = createMockStoreState()
 vi.mock('@ai-sdk/provider-utils', () => ({
   createJsonResponseHandler: vi.fn(() => 'json-handler'),
   createJsonErrorResponseHandler: vi.fn(() => 'error-handler'),
@@ -13,23 +34,40 @@ vi.mock('@ai-sdk/provider-utils', () => ({
   zodSchema: vi.fn((s: unknown) => s)
 }))
 
+vi.mock('@renderer/i18n', () => ({
+  default: {
+    t: (key: string) => key
+  }
+}))
+
 vi.mock('@renderer/utils', () => ({
   formatApiHost: (host: string) => host?.replace(/\/$/, ''),
+  getDefaultGroupName: (id: string, provider?: string) => {
+    const parts = id.toLowerCase().split(/[-_]/)
+    return provider && parts.length > 1 ? `${parts[0]}-${parts[1]}` : id.toLowerCase()
+  },
   withoutTrailingSlash: (s: string) => s?.replace(/\/$/, ''),
   getLowerBaseModelName: (id: string) => id.toLowerCase()
 }))
 
 vi.mock('@renderer/utils/provider', () => ({
-  isAIGatewayProvider: (p: Provider) => p.id === 'gateway',
   isGeminiProvider: (p: Provider) => p.id === 'gemini' || p.type === 'gemini',
-  isOllamaProvider: (p: Provider) => p.id === 'ollama' || p.type === 'ollama'
+  isOllamaProvider: (p: Provider) => p.id === 'ollama' || p.type === 'ollama',
+  isVertexProvider: (p: Provider) => p.id === 'vertexai' || p.type === 'vertexai'
 }))
 
 vi.mock('@shared/utils', () => ({
   defaultAppHeaders: () => ({ 'X-App': 'CherryStudio' })
 }))
 
+vi.mock('@renderer/store', () => ({
+  default: {
+    getState: () => mockStoreState
+  }
+}))
+
 const { listModels } = await import('../listModels')
+const { OllamaTagsResponseSchema } = await import('../schemas')
 
 // === Real API response fixtures (captured 2026-03-19) ===
 
@@ -94,6 +132,27 @@ const REAL_GEMINI = {
   ]
 }
 
+// From https://api.anthropic.com/v1/models
+const REAL_ANTHROPIC = {
+  data: [
+    {
+      id: 'claude-opus-4-8-20260101',
+      display_name: 'Claude Opus 4.8',
+      created_at: '2026-01-01T00:00:00Z',
+      type: 'model'
+    },
+    {
+      id: 'claude-sonnet-4-5-20250929',
+      display_name: 'Claude Sonnet 4.5',
+      created_at: '2025-09-29T00:00:00Z',
+      type: 'model'
+    }
+  ],
+  has_more: false,
+  first_id: 'claude-opus-4-8-20260101',
+  last_id: 'claude-sonnet-4-5-20250929'
+}
+
 // From https://api.together.xyz/v1/models
 const REAL_TOGETHER = [
   { id: 'hexgrad/Kokoro-82M', display_name: 'Kokoro 82M', organization: 'Hexgrad', description: null },
@@ -141,6 +200,45 @@ const REAL_PPIO_CHAT = {
     { id: 'qwen/qwen3.5-27b', object: 'model', owned_by: 'unknown' },
     { id: 'qwen/qwen3.5-122b-a10b', object: 'model', owned_by: 'unknown' },
     { id: 'qwen/qwen3.5-35b-a3b', object: 'model', owned_by: 'unknown' }
+  ]
+}
+
+// From https://ai-gateway.vercel.sh/v3/ai/config (Vercel AI Gateway model registry)
+const REAL_VERCEL_GATEWAY = {
+  models: [
+    {
+      id: 'alibaba/qwen3-max',
+      name: 'Qwen3 Max',
+      description: 'The Qwen 3 series Max model.',
+      modelType: 'language',
+      tags: ['tool-use', 'implicit-caching'],
+      specification: {
+        specificationVersion: 'v3',
+        provider: 'alibaba',
+        modelId: 'alibaba/qwen3-max',
+        type: 'language'
+      },
+      pricing: { input: '0.0000012', output: '0.000006' }
+    },
+    {
+      id: 'openai/gpt-4o',
+      name: 'GPT-4o',
+      modelType: 'language',
+      specification: {
+        specificationVersion: 'v3',
+        provider: 'openai',
+        modelId: 'openai/gpt-4o'
+      }
+    },
+    {
+      id: 'openai/text-embedding-3-large',
+      modelType: 'embedding',
+      specification: {
+        specificationVersion: 'v3',
+        provider: 'openai',
+        modelId: 'openai/text-embedding-3-large'
+      }
+    }
   ]
 }
 
@@ -231,20 +329,142 @@ function assertValidModels(models: { id: string; name: string; provider: string;
   }
 }
 
+type VertexPublisherModelFixture = {
+  name: string
+  displayName?: string
+  description?: string
+}
+
+type VertexPublisherFixtureResponse = {
+  publisherModels?: VertexPublisherModelFixture[]
+  nextPageToken?: string
+}
+
+function mockVertexPublisherResponses(
+  responsesByPublisher: Record<string, VertexPublisherFixtureResponse | VertexPublisherFixtureResponse[] | Error>
+) {
+  const pageIndexByPublisher = new Map<string, number>()
+
+  mockGetFromApi.mockImplementation(({ url }: { url: string }) => {
+    const match = url.match(/\/publishers\/([^/]+)\/models/)
+    const publisher = match?.[1]
+
+    if (!publisher) {
+      return Promise.resolve({
+        value: { publisherModels: [] }
+      })
+    }
+
+    const response = responsesByPublisher[publisher]
+
+    if (response instanceof Error) {
+      return Promise.reject(response)
+    }
+
+    if (Array.isArray(response)) {
+      const pageIndex = pageIndexByPublisher.get(publisher) ?? 0
+      pageIndexByPublisher.set(publisher, pageIndex + 1)
+
+      return Promise.resolve({
+        value: response[pageIndex] ?? { publisherModels: [] }
+      })
+    }
+
+    return Promise.resolve({
+      value: response ?? { publisherModels: [] }
+    })
+  })
+}
+
+const COPILOT_PROVIDER = makeProvider({
+  id: 'copilot',
+  apiHost: 'https://api.githubcopilot.com/'
+})
+
+const COPILOT_MODELS_RESPONSE = {
+  value: {
+    data: [
+      { id: 'accounts/msft/routers/f185i3v4' },
+      { id: 'tts-1', object: 'model' },
+      { id: 'gpt-4o-mini', owned_by: 'github' },
+      { id: 'claude-sonnet-4.5', policy: { state: 'disabled' } },
+      { id: 'gpt-4o-mini', owned_by: 'github' }
+    ]
+  }
+}
+
 // === Tests ===
 
 beforeEach(() => {
   mockGetFromApi.mockReset()
-  vi.stubGlobal('window', { ...globalThis.window, keyv: { get: vi.fn(), set: vi.fn() } })
+  mockCopilotGetToken.mockReset()
+  mockVertexGetAuthHeaders.mockReset()
+  mockToastError.mockReset()
+  mockStoreState = createMockStoreState()
+  mockCopilotGetToken.mockResolvedValue({ token: 'copilot-dynamic-token' })
+  mockVertexGetAuthHeaders.mockResolvedValue({ Authorization: 'Bearer vertex-token' })
+  vi.stubGlobal('window', {
+    ...globalThis.window,
+    keyv: { get: vi.fn(), set: vi.fn() },
+    toast: {
+      error: mockToastError
+    },
+    api: {
+      copilot: {
+        getToken: mockCopilotGetToken
+      },
+      vertexAI: {
+        getAuthHeaders: mockVertexGetAuthHeaders
+      }
+    }
+  })
 })
 
 describe('listModels', () => {
+  describe('Copilot', () => {
+    it('should use Copilot-specific token and filter unsupported Copilot entries', async () => {
+      mockGetFromApi.mockResolvedValue(COPILOT_MODELS_RESPONSE)
+
+      const models = await listModels(COPILOT_PROVIDER)
+      expect(mockGetFromApi).toHaveBeenCalledTimes(1)
+      const [request] = mockGetFromApi.mock.calls[0]
+
+      expect(mockCopilotGetToken).toHaveBeenCalledTimes(1)
+      expect(request).toMatchObject({
+        url: 'https://api.githubcopilot.com/models',
+        headers: {
+          Authorization: 'Bearer copilot-dynamic-token',
+          'Copilot-Integration-Id': 'vscode-chat'
+        }
+      })
+      expect(models.map((model) => model.id)).toEqual(['gpt-4o-mini'])
+    })
+  })
+
   describe('OpenAI-compatible (DeepSeek)', () => {
     it('should convert real DeepSeek response', async () => {
       mockGetFromApi.mockResolvedValue({ value: REAL_DEEPSEEK })
       const models = await listModels(makeProvider({ id: 'deepseek' }))
       assertValidModels(models)
       expect(models).toMatchSnapshot()
+    })
+
+    it('should infer model groups from ids for custom UUID providers', async () => {
+      const providerId = '9d08892b-3023-4b98-8c69-8032eec3dc98'
+      mockGetFromApi.mockResolvedValue({
+        value: {
+          data: [
+            { id: 'gemini-2.5-flash', object: 'model', owned_by: 'google' },
+            { id: 'gpt-4.1-mini', object: 'model', owned_by: 'openai' }
+          ]
+        }
+      })
+
+      const models = await listModels(makeProvider({ id: providerId, isSystem: false }))
+
+      expect(models).toHaveLength(2)
+      expect(models.map((model) => model.group)).toEqual(['gemini-2.5', 'gpt-4.1'])
+      expect(models.map((model) => model.group)).not.toContain(providerId)
     })
   })
 
@@ -286,6 +506,240 @@ describe('listModels', () => {
       expect(models[0].name).toBe('Gemini 2.5 Flash')
       expect(models[0].id).toBe('gemini-2.5-flash')
       expect(models).toMatchSnapshot()
+    })
+
+    it('should encode special characters in API key query parameter', async () => {
+      mockGetFromApi.mockResolvedValue({ value: REAL_GEMINI })
+
+      await listModels(
+        makeProvider({
+          id: 'gemini',
+          type: 'gemini',
+          apiHost: 'https://generativelanguage.googleapis.com/v1beta',
+          apiKey: 'AIzaSyABC&DEF=xyz+123'
+        })
+      )
+
+      const [request] = mockGetFromApi.mock.calls[0]
+      expect(request.url).toBe(
+        'https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyABC%26DEF%3Dxyz%2B123'
+      )
+      expect(new URL(request.url).searchParams.get('key')).toBe('AIzaSyABC&DEF=xyz+123')
+      expect(Array.from(new URL(request.url).searchParams.keys())).toEqual(['key'])
+    })
+  })
+
+  describe('Anthropic', () => {
+    it('should list Anthropic models from the native /v1/models endpoint', async () => {
+      mockGetFromApi.mockResolvedValue({ value: REAL_ANTHROPIC })
+
+      const models = await listModels(
+        makeProvider({ id: 'anthropic', type: 'anthropic' as any, apiHost: 'https://api.anthropic.com/v1' })
+      )
+
+      expect(mockGetFromApi).toHaveBeenCalledTimes(1)
+      const [request] = mockGetFromApi.mock.calls[0]
+      expect(request).toMatchObject({
+        url: 'https://api.anthropic.com/v1/models?limit=1000',
+        headers: expect.objectContaining({
+          'anthropic-version': '2023-06-01',
+          'x-api-key': 'sk-test'
+        })
+      })
+      assertValidModels(models)
+      expect(models.map((m) => m.id)).toEqual(['claude-opus-4-8-20260101', 'claude-sonnet-4-5-20250929'])
+      expect(models[0]).toMatchObject({
+        name: 'Claude Opus 4.8',
+        provider: 'anthropic',
+        group: 'anthropic',
+        owned_by: 'anthropic'
+      })
+    })
+
+    it('should paginate Anthropic model list results via after_id', async () => {
+      mockGetFromApi
+        .mockResolvedValueOnce({
+          value: {
+            data: [REAL_ANTHROPIC.data[0]],
+            has_more: true,
+            last_id: REAL_ANTHROPIC.data[0].id
+          }
+        })
+        .mockResolvedValueOnce({
+          value: {
+            data: [REAL_ANTHROPIC.data[1]],
+            has_more: false
+          }
+        })
+
+      const models = await listModels(
+        makeProvider({ id: 'anthropic', type: 'anthropic' as any, apiHost: 'https://api.anthropic.com/v1' })
+      )
+
+      expect(mockGetFromApi).toHaveBeenCalledTimes(2)
+      expect(mockGetFromApi.mock.calls[1][0].url).toBe(
+        'https://api.anthropic.com/v1/models?limit=1000&after_id=claude-opus-4-8-20260101'
+      )
+      expect(models.map((m) => m.id)).toEqual(['claude-opus-4-8-20260101', 'claude-sonnet-4-5-20250929'])
+    })
+  })
+
+  describe('Vertex AI', () => {
+    it('should authenticate, paginate, and normalize Google Vertex publisher models', async () => {
+      mockVertexPublisherResponses({
+        google: [
+          {
+            publisherModels: [
+              {
+                name: 'publishers/google/models/gemini-2.5-pro',
+                displayName: 'Gemini 2.5 Pro',
+                description: 'Pro Gemini model'
+              },
+              {
+                name: 'publishers/google/models/gemini-2.5-pro',
+                displayName: 'Gemini 2.5 Pro duplicate'
+              },
+              {
+                name: 'publishers/google/models/imageclassification-efficientnet'
+              }
+            ],
+            nextPageToken: 'next-page'
+          },
+          {
+            publisherModels: [
+              {
+                name: 'publishers/google/models/gemini-2.5-flash',
+                displayName: 'Gemini 2.5 Flash',
+                description: 'Fast Gemini model'
+              },
+              {
+                name: 'publishers/google/models/text-embedding-005'
+              }
+            ]
+          }
+        ]
+      })
+
+      const models = await listModels(
+        makeProvider({
+          id: 'vertexai',
+          type: 'vertexai',
+          apiHost: 'https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1'
+        })
+      )
+
+      expect(mockVertexGetAuthHeaders).toHaveBeenCalledWith({
+        projectId: 'test-project',
+        serviceAccount: {
+          privateKey: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+          clientEmail: 'vertex@test-project.iam.gserviceaccount.com'
+        }
+      })
+      const requests = mockGetFromApi.mock.calls.map(([request]) => request)
+      const requestedUrls = requests.map((request) => request.url)
+      const googleUrls = requestedUrls.filter((url) => url.includes('/publishers/google/models'))
+
+      expect(googleUrls).toEqual([
+        'https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=100&listAllVersions=true',
+        'https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=100&listAllVersions=true&pageToken=next-page'
+      ])
+      expect(requestedUrls).toContain(
+        'https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/openai/models?pageSize=100&listAllVersions=true'
+      )
+      expect(requestedUrls.some((url) => url.includes('/publishers/anthropic/models'))).toBe(false)
+      expect(requests[0].headers).toMatchObject({
+        Authorization: 'Bearer vertex-token',
+        'X-App': 'CherryStudio'
+      })
+      expect(models.map((m) => m.id)).toEqual(['gemini-2.5-pro', 'gemini-2.5-flash', 'text-embedding-005'])
+      expect(models[0]).toMatchObject({
+        name: 'Gemini 2.5 Pro',
+        description: 'Pro Gemini model',
+        owned_by: 'google',
+        provider: 'vertexai'
+      })
+    })
+
+    it('should keep supported partner families, filter audio and tts models, and ignore failed publishers', async () => {
+      mockVertexPublisherResponses({
+        google: new Error('publisher unavailable'),
+        openai: {
+          publisherModels: [
+            { name: 'publishers/openai/models/gpt-5-mini', displayName: 'GPT 5 Mini' },
+            { name: 'publishers/openai/models/gpt-4o-audio-preview' },
+            { name: 'publishers/openai/models/gpt-4o-mini-tts' }
+          ]
+        },
+        meta: {
+          publisherModels: [{ name: 'publishers/meta/models/llama-4-scout-17b-16e-instruct-maas' }]
+        },
+        qwen: {
+          publisherModels: [{ name: 'publishers/qwen/models/qwen3.5-27b-instruct-maas' }]
+        },
+        'deepseek-ai': {
+          publisherModels: [{ name: 'publishers/deepseek-ai/models/deepseek-v3.2-maas' }]
+        },
+        moonshotai: {
+          publisherModels: [{ name: 'publishers/moonshotai/models/kimi-k2-thinking-maas' }]
+        },
+        'zai-org': {
+          publisherModels: [{ name: 'publishers/zai-org/models/glm-5-maas' }]
+        }
+      })
+
+      const models = await listModels(makeProvider({ id: 'vertexai', type: 'vertexai' }))
+
+      expect(models.map((m) => m.id)).toEqual([
+        'gpt-5-mini',
+        'llama-4-scout-17b-16e-instruct-maas',
+        'qwen3.5-27b-instruct-maas',
+        'deepseek-v3.2-maas',
+        'kimi-k2-thinking-maas',
+        'glm-5-maas'
+      ])
+      expect(models.map((m) => m.owned_by)).toEqual(['openai', 'meta', 'qwen', 'deepseek-ai', 'moonshotai', 'zai-org'])
+      expect(mockGetFromApi.mock.calls.some(([request]) => request.url.includes('/publishers/google/models'))).toBe(
+        true
+      )
+    })
+
+    it('should warn and skip listing when required Vertex settings are incomplete', async () => {
+      mockStoreState = {
+        ...createMockStoreState(),
+        llm: {
+          settings: {
+            vertexai: {
+              projectId: 'test-project',
+              location: '',
+              serviceAccount: {
+                privateKey: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+                clientEmail: 'vertex@test-project.iam.gserviceaccount.com'
+              }
+            }
+          }
+        }
+      }
+
+      const models = await listModels(makeProvider({ id: 'vertexai', type: 'vertexai' }))
+
+      expect(models).toEqual([])
+      expect(mockVertexGetAuthHeaders).not.toHaveBeenCalled()
+      expect(mockGetFromApi).not.toHaveBeenCalled()
+      expect(mockToastError).toHaveBeenCalledWith(
+        expect.stringContaining('settings.provider.vertex_ai.service_account.incomplete_config')
+      )
+      expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining('settings.provider.vertex_ai.location'))
+      expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining('settings.provider.vertex_ai.location_help'))
+    })
+
+    it('should warn and skip listing when Vertex auth header generation fails', async () => {
+      mockVertexGetAuthHeaders.mockRejectedValueOnce(new Error('auth failed'))
+
+      const models = await listModels(makeProvider({ id: 'vertexai', type: 'vertexai' }))
+
+      expect(models).toEqual([])
+      expect(mockGetFromApi).not.toHaveBeenCalled()
+      expect(mockToastError).toHaveBeenCalledWith('auth failed')
     })
   })
 
@@ -386,13 +840,126 @@ describe('listModels', () => {
       const models = await listModels(makeProvider({ id: 'aihubmix' }))
       expect(models).toHaveLength(2)
     })
+
+    it('should build the models URL from the configured base URL, stripping a trailing /v1', async () => {
+      mockGetFromApi.mockResolvedValue({ value: REAL_AIHUBMIX })
+      await listModels(makeProvider({ id: 'aihubmix', apiHost: 'https://custom.example.com/v1' }))
+      expect(mockGetFromApi).toHaveBeenCalledTimes(1)
+      const [request] = mockGetFromApi.mock.calls[0]
+      expect(request.url).toBe('https://custom.example.com/api/v1/models')
+    })
+  })
+
+  describe('Ollama', () => {
+    it('should accept null families in Ollama tags schema', () => {
+      const parsed = OllamaTagsResponseSchema.parse({
+        models: [
+          {
+            name: 'glm-5:cloud',
+            model: 'glm-5:cloud',
+            details: {
+              parent_model: '',
+              format: '',
+              family: '',
+              families: null,
+              parameter_size: '',
+              quantization_level: ''
+            }
+          }
+        ]
+      })
+
+      expect(parsed.models[0].details?.families).toBeUndefined()
+    })
+
+    it('should accept null families in real Ollama tag responses', async () => {
+      mockGetFromApi.mockResolvedValue({
+        value: {
+          models: [
+            {
+              name: 'glm-5:cloud',
+              model: 'glm-5:cloud',
+              details: {
+                parent_model: '',
+                format: '',
+                family: '',
+                families: null,
+                parameter_size: '',
+                quantization_level: ''
+              }
+            },
+            {
+              name: 'qwen3.5:9b',
+              model: 'qwen3.5:9b',
+              details: {
+                family: 'qwen35',
+                families: ['qwen35']
+              }
+            }
+          ]
+        }
+      })
+
+      const models = await listModels(makeProvider({ id: 'ollama', type: 'ollama', apiHost: 'http://localhost:11434' }))
+      assertValidModels(models)
+      expect(models.map((m) => m.id)).toEqual(['glm-5:cloud', 'qwen3.5:9b'])
+    })
+  })
+
+  describe('Vercel AI Gateway', () => {
+    it('should hit /v3/ai/config and normalize entries', async () => {
+      mockGetFromApi.mockResolvedValue({ value: REAL_VERCEL_GATEWAY })
+      const models = await listModels(
+        makeProvider({
+          id: 'gateway',
+          type: 'gateway' as any,
+          apiHost: 'https://ai-gateway.vercel.sh/v1/ai',
+          apiKey: 'sk-gw'
+        })
+      )
+
+      expect(mockGetFromApi).toHaveBeenCalledTimes(1)
+      const [request] = mockGetFromApi.mock.calls[0]
+      expect(request).toMatchObject({
+        url: 'https://ai-gateway.vercel.sh/v3/ai/config',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer sk-gw',
+          'ai-gateway-protocol-version': '0.0.1'
+        })
+      })
+      assertValidModels(models)
+      expect(models).toHaveLength(3)
+      expect(models[0]).toMatchObject({
+        id: 'alibaba/qwen3-max',
+        name: 'Qwen3 Max',
+        provider: 'gateway',
+        group: 'alibaba',
+        owned_by: 'alibaba',
+        description: 'The Qwen 3 series Max model.'
+      })
+      expect(models[2].name).toBe('openai/text-embedding-3-large')
+    })
+
+    it('should fall back to id when name is missing and deduplicate', async () => {
+      mockGetFromApi.mockResolvedValue({
+        value: {
+          models: [
+            { id: 'openai/gpt-4o', specification: { provider: 'openai' } },
+            { id: 'openai/gpt-4o', specification: { provider: 'openai' } }
+          ]
+        }
+      })
+      const models = await listModels(
+        makeProvider({ id: 'gateway', type: 'gateway' as any, apiHost: 'https://ai-gateway.vercel.sh/v1/ai' })
+      )
+      expect(models).toHaveLength(1)
+      expect(models[0].name).toBe('openai/gpt-4o')
+    })
   })
 
   describe('Unsupported providers', () => {
     it.each([
-      ['gateway', { id: 'gateway' }],
       ['aws-bedrock', { id: 'aws-bedrock' }],
-      ['anthropic', { id: 'anthropic' }],
       ['vertex-anthropic', { id: 'vertex-anthro', type: 'vertex-anthropic' as any }]
     ])('should return empty for %s', async (_, overrides) => {
       const models = await listModels(makeProvider(overrides as any))

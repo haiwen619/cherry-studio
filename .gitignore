@@ -58,9 +58,11 @@ local
 .trae/*
 .claude-code-router/*
 .codebuddy/*
+.antigravitycli/*
 .zed/*
 !.zed/settings.json.example
 CLAUDE.local.md
+AGENTS.override.md
 
 # vitest
 coverage
@@ -78,3 +80,4 @@ test-results
 YOUR_MEMORY_FILE_PATH
 
 .sessions/
+/.vs

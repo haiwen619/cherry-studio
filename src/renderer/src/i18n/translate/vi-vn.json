@@ -298,16 +298,9 @@
         "button": "Xóa đường dẫn tùy chỉnh"
       },
       "customPath": "Sử dụng đường dẫn tùy chỉnh: {{path}}",
-      "error": {
-        "description": "Git Bash là bắt buộc để chạy agent trên Windows. Agent không thể hoạt động nếu thiếu nó. Vui lòng cài đặt Git for Windows từ",
-        "recheck": "Kiểm tra lại việc cài đặt Git Bash",
-        "required": "Đường dẫn Git Bash là bắt buộc trên Windows",
-        "title": "Cần có Git Bash"
-      },
       "found": {
         "title": "Git Bash đã được cấu hình"
       },
-      "notFound": "Không tìm thấy Git Bash. Vui lòng cài đặt trước.",
       "pick": {
         "button": "Chọn đường dẫn Git Bash",
         "failed": "Không thể thiết lập đường dẫn Git Bash",
@@ -316,7 +309,7 @@
       },
       "placeholder": "Chọn đường dẫn bash.exe",
       "success": "Git Bash đã được phát hiện thành công!",
-      "tooltip": "Git Bash là bắt buộc để chạy các agent trên Windows. Cài đặt từ git-scm.com nếu chưa có."
+      "tooltip": "Git Bash là tùy chọn trên Windows. Nếu chưa được cấu hình hoặc không khả dụng, agent sẽ sử dụng PowerShell."
     },
     "input": {
       "placeholder": "Nhập tin nhắn của bạn ở đây, gửi bằng {{key}} - @ chọn đường dẫn, / chọn lệnh",
@@ -639,6 +632,9 @@
         },
         "NotebookRead": {
           "description": "Đọc và hiển thị nội dung Jupyter notebook"
+        },
+        "PowerShell": {
+          "description": "Thực thi các lệnh PowerShell trong môi trường của bạn"
         },
         "Read": {
           "description": "Đọc nội dung của các tệp"
@@ -1600,6 +1596,7 @@
     "copy_failed": "Sao chép thất bại",
     "current": "Hiện tại",
     "cut": "Cắt",
+    "decline": "Từ chối",
     "default": "Mặc định",
     "delete": "Xóa",
     "delete_confirm": "Bạn có chắc chắn muốn xóa không?",
@@ -1761,6 +1758,7 @@
     "detail": "Chi tiết lỗi",
     "details": "Chi tiết",
     "diagnosis": {
+      "abnormal_finish": "Phản hồi đã kết thúc bất thường, vui lòng thử lại hoặc đổi mô hình",
       "ai_button": "Chẩn đoán bằng AI",
       "ai_done": "Chẩn đoán",
       "ai_loading": "Chẩn đoán",
@@ -1776,10 +1774,13 @@
       "model_conflict": "Mô hình chẩn đoán giống với mô hình đang gặp lỗi",
       "network": "Không thể kết nối đến máy chủ, hãy kiểm tra cài đặt mạng hoặc proxy",
       "ocr": "Công cụ OCR chưa được khởi tạo, hãy kiểm tra cài đặt OCR",
+      "output_truncated": "Phản hồi đã đạt độ dài tối đa và bị cắt bớt",
       "parse": "AI đã trả về phản hồi không hợp lệ, vui lòng thử lại hoặc chuyển sang mô hình khác",
       "payload": "Nội dung yêu cầu quá lớn, vui lòng giảm kích thước tệp hoặc văn bản",
       "proxy": "Lỗi proxy hoặc chứng chỉ SSL, hãy kiểm tra cài đặt proxy và mạng",
       "quota": "Hạn mức tài khoản đã cạn kiệt, vui lòng nạp tiền hoặc chuyển đổi nhà cung cấp",
+      "rate_limit": "Quá nhiều yêu cầu trong thời gian ngắn. Hãy đợi một chút rồi thử lại, hoặc chuyển sang mô hình có giới hạn tốc độ cao hơn",
+      "region": "Dịch vụ không khả dụng tại khu vực của bạn. Hãy cấu hình proxy hoặc chuyển sang nhà cung cấp có sẵn trong khu vực của bạn",
       "server": "Lỗi máy chủ, vui lòng thử lại sau",
       "stream": "Phản hồi bị gián đoạn, kiểm tra độ ổn định mạng hoặc thử lại",
       "unknown": "Đã xảy ra lỗi",
@@ -1791,6 +1792,7 @@
     "http": {
       "400": "Yêu cầu thất bại. Vui lòng kiểm tra xem các tham số yêu cầu có đúng không. Nếu bạn đã thay đổi cài đặt mô hình, hãy đặt lại chúng về cài đặt mặc định",
       "401": "Xác thực thất bại. Vui lòng kiểm tra lại xem khóa API của bạn có chính xác không",
+      "402": "Yêu cầu thanh toán. Số dư hoặc hạn mức tài khoản của bạn đã cạn — hãy nạp tiền trên trang nhà cung cấp, hoặc chuyển sang nhà cung cấp khác",
       "403": "Truy cập bị từ chối. Vui lòng kiểm tra xem tài khoản của bạn đã được xác minh chưa, hoặc liên hệ với nhà cung cấp dịch vụ để biết thêm thông tin.",
       "404": "Không tìm thấy mô hình hoặc đường dẫn yêu cầu không chính xác",
       "429": "Quá nhiều yêu cầu. Vui lòng thử lại sau.",
@@ -2486,6 +2488,10 @@
       "completed": "Hoàn thành",
       "error": "Đã xảy ra lỗi",
       "groupHeader": "{{count}} appels d’outil",
+      "groupHeaderMessages": "{{count}} messages",
+      "groupHeaderThinking": "{{count}} thoughts",
+      "groupHeaderWithDetails": "{{toolCount}} appels d’outil · {{thinkingCount}} thoughts · {{messageCount}} messages",
+      "groupHeaderWithMessages": "{{toolCount}} appels d’outil · {{messageCount}} messages",
       "invoking": "Invocando",
       "labels": {
         "bash": "Bash",
@@ -2496,6 +2502,7 @@
         "mcpServerTool": "Công cụ Máy chủ MCP",
         "multiEdit": "Chỉnh sửa đa nhiệm",
         "notebookEdit": "Chỉnh sửa Sổ tay",
+        "powerShell": "PowerShell",
         "readFile": "Đọc Tệp",
         "search": "Tìm kiếm",
         "skill": "Kỹ năng",
@@ -2904,6 +2911,12 @@
     "title": "Ollama"
   },
   "onboarding": {
+    "privacy": {
+      "accept_and_continue": "Chấp nhận và tiếp tục",
+      "notice": "Bằng cách tiếp tục, bạn xác nhận rằng bạn đã đọc và đồng ý với",
+      "period": ".",
+      "policy": "Chính sách quyền riêng tư"
+    },
     "select_model": {
       "change_later": "Bạn có thể thay đổi điều này bất cứ lúc nào trong phần cài đặt",
       "start": "Bắt đầu",
@@ -3381,6 +3394,14 @@
     "source": "Ver Código Fuente",
     "zoom_in": "Phóng to",
     "zoom_out": "Zum Herauszoomen"
+  },
+  "privacy_policy": {
+    "title": "Chính sách quyền riêng tư"
+  },
+  "privacy_policy_update": {
+    "description_before_link": "Chúng tôi đã cập nhật chính sách quyền riêng tư. Vui lòng xem lại bản mới nhất ",
+    "policy": "Chính sách quyền riêng tư",
+    "title": "Chính sách quyền riêng tư đã được cập nhật"
   },
   "prompts": {
     "explanation": "Giải thích khái niệm này cho tôi",
@@ -5482,7 +5503,8 @@
         "documentation": "Xem tài liệu chính thức để biết thêm chi tiết cấu hình:",
         "learn_more": "Tìm hiểu thêm",
         "location": "Vị trí",
-        "location_help": "Vị trí dịch vụ Vertex AI, ví dụ: us-central1",
+        "location_help": "Vị trí dịch vụ Vertex AI, ví dụ: us-central1. Trường này không được đọc từ JSON của Service Account và phải nhập thủ công.",
+        "location_placeholder": "Chọn vị trí Vertex AI",
         "project_id": "ID Dự án",
         "project_id_help": "ID dự án Google Cloud của bạn",
         "project_id_placeholder": "id-dự-án-google-cloud-của-bạn",
@@ -5493,6 +5515,11 @@
           "client_email_placeholder": "Nhập email khách hàng của Tài khoản Dịch vụ",
           "description": "Sử dụng Tài khoản Dịch vụ để xác thực, phù hợp cho các môi trường không có ADC",
           "incomplete_config": "Vui lòng hoàn tất cấu hình Tài khoản Dịch vụ trước",
+          "json_input": "Service Account JSON",
+          "json_input_help": "Dán toàn bộ nội dung khóa JSON. Sau khi phân tích, chỉ project_id, client_email và private_key được lưu, JSON gốc sẽ được xóa.",
+          "json_input_placeholder": "Dán toàn bộ nội dung khóa JSON của Service Account",
+          "json_parse_error": "Không thể phân tích Service Account JSON. Vui lòng xác nhận định dạng là chính xác.",
+          "json_parse_success": "Đã phân tích Service Account JSON",
           "private_key": "Khóa riêng",
           "private_key_help": "Trường private_key từ tệp khóa JSON đã tải xuống từ Google Cloud Console",
           "private_key_placeholder": "Nhập khóa riêng của Tài khoản Dịch vụ",

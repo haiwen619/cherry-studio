@@ -51,6 +51,7 @@ const getAgentToolIcon = (toolName: string): ReactNode => {
       return <Bot size={14} />
     case AgentToolsType.Bash:
     case AgentToolsType.BashOutput:
+    case AgentToolsType.PowerShell:
       return <Terminal size={14} />
     case AgentToolsType.Search:
       return <Search size={14} />
@@ -88,6 +89,8 @@ const getAgentToolLabel = (toolName: string, t: (key: string) => string): string
       return t('message.tools.labels.task')
     case AgentToolsType.Bash:
       return t('message.tools.labels.bash')
+    case AgentToolsType.PowerShell:
+      return t('message.tools.labels.powerShell')
     case AgentToolsType.BashOutput:
       return t('message.tools.labels.bashOutput')
     case AgentToolsType.Search:
@@ -134,6 +137,8 @@ const HeaderContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
   font-size: 13px;
   padding: 8px 12px;
   background: var(--color-background);
@@ -147,8 +152,25 @@ const LabelContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  width: 100%;
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 14px;
   min-width: 0;
+  height: 38px;
+
+  .tool-name {
+    gap: 0 !important;
+    line-height: 14px;
+  }
+
+  .tool-icon {
+    width: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
 `
 
 const ToolName = styled(Flex)`
@@ -173,10 +195,12 @@ const Description = styled.span`
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
   max-width: 300px;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
+  text-align: left;
 `
 
 const Stats = styled.span`
@@ -225,7 +249,7 @@ const ToolHeader: FC<ToolHeaderProps> = ({
     const mcpTool = tool as MCPTool
     return (
       <Container>
-        <ToolName align="center" gap={6}>
+        <ToolName className="tool-name" align="center" gap={6}>
           <Wrench size={14} className="tool-icon" />
           <span className="name">
             {mcpTool.serverName} : {mcpTool.name}
@@ -249,7 +273,7 @@ const ToolHeader: FC<ToolHeaderProps> = ({
 
   return (
     <Container>
-      <ToolName align="center" gap={6}>
+      <ToolName className="tool-name" align="center" gap={6}>
         <span className="tool-icon">{propIcon || getAgentToolIcon(toolName)}</span>
         <span className="name">{getAgentToolLabel(toolName, t)}</span>
       </ToolName>

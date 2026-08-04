@@ -480,6 +480,7 @@ export const SYSTEM_PROVIDERS_CONFIG: Record<SystemProviderId, SystemProvider> =
     type: 'openai',
     apiKey: '',
     apiHost: 'https://api.stepfun.com',
+    anthropicApiHost: 'https://api.stepfun.com',
     models: SYSTEM_MODELS.stepfun,
     isSystem: true,
     enabled: false
@@ -739,6 +740,8 @@ export const SYSTEM_PROVIDERS_CONFIG: Record<SystemProviderId, SystemProvider> =
   }
 } as const
 
+export const INITIAL_STATE_EXCLUDED_PROVIDER_IDS = ['cephalon', 'tokenflux'] as const satisfies SystemProviderId[]
+
 export const SYSTEM_PROVIDERS: SystemProvider[] = Object.values(SYSTEM_PROVIDERS_CONFIG)
 
 export const PROVIDER_LOGO_MAP: AtLeast<SystemProviderId, string> = {
@@ -836,10 +839,10 @@ export const PROVIDER_URLS: Record<SystemProviderId, ProviderUrls> = {
       url: 'https://open.cherryin.net'
     },
     websites: {
-      official: 'https://open.cherryin.ai',
-      apiKey: 'https://open.cherryin.ai/console/token',
-      docs: 'https://open.cherryin.ai',
-      models: 'https://open.cherryin.ai/pricing'
+      official: 'https://open.cherryin.net',
+      apiKey: 'https://open.cherryin.net/console/token',
+      docs: 'https://open.cherryin.net',
+      models: 'https://open.cherryin.net/pricing'
     }
   },
   ph8: {
@@ -1108,8 +1111,8 @@ export const PROVIDER_URLS: Record<SystemProviderId, ProviderUrls> = {
     websites: {
       official: 'https://platform.stepfun.com/',
       apiKey: 'https://platform.stepfun.com/interface-key',
-      docs: 'https://platform.stepfun.com/docs/overview/concept',
-      models: 'https://platform.stepfun.com/docs/llm/text'
+      docs: 'https://platform.stepfun.com/docs/api-reference/chat/chat-completion-create',
+      models: 'https://platform.stepfun.com/docs/guides/models/overview'
     }
   },
   doubao: {
@@ -1267,10 +1270,10 @@ export const PROVIDER_URLS: Record<SystemProviderId, ProviderUrls> = {
       url: 'https://aihubmix.com'
     },
     websites: {
-      official: 'https://aihubmix.com?aff=SJyh',
-      apiKey: 'https://aihubmix.com?aff=SJyh',
-      docs: 'https://doc.aihubmix.com/',
-      models: 'https://aihubmix.com/models'
+      official: 'https://inferera.com?aff=SJyh',
+      apiKey: 'https://inferera.com?aff=SJyh',
+      docs: 'https://docs.aihubmix.com',
+      models: 'https://inferera.com/models'
     }
   },
   fireworks: {

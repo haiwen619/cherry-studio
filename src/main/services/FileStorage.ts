@@ -1,5 +1,5 @@
 import { loggerService } from '@logger'
-import { toAsarUnpackedPath } from '@main/utils'
+import { resolveBundledRipgrepPath } from '@main/utils/bundledBinaries'
 import {
   checkName,
   getFilesDir,
@@ -36,16 +36,7 @@ const logger = loggerService.withContext('FileStorage')
 // Get ripgrep binary path
 const getRipgrepBinaryPath = (): string | null => {
   try {
-    const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
-    const platform = process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux'
-    let ripgrepBinaryPath = path.join(
-      __dirname,
-      '../../node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep',
-      `${arch}-${platform}`,
-      process.platform === 'win32' ? 'rg.exe' : 'rg'
-    )
-
-    ripgrepBinaryPath = toAsarUnpackedPath(ripgrepBinaryPath)
+    const ripgrepBinaryPath = resolveBundledRipgrepPath()
 
     if (fs.existsSync(ripgrepBinaryPath)) {
       return ripgrepBinaryPath
@@ -653,8 +644,9 @@ class FileStorage {
     const filePath = path.join(this.storageDir, id)
     const data = await fs.promises.readFile(filePath)
     const base64 = data.toString('base64')
-    const ext = path.extname(filePath).slice(1) == 'jpg' ? 'jpeg' : path.extname(filePath).slice(1)
-    const mime = `image/${ext}`
+    const rawExt = path.extname(filePath).slice(1)
+    const ext = rawExt === 'jpg' ? 'jpeg' : rawExt
+    const mime = ext ? `image/${ext}` : 'image/png'
     return {
       mime,
       base64,
@@ -696,7 +688,7 @@ class FileStorage {
         path: destPath,
         created_at: new Date().toISOString(),
         size: buffer.length,
-        ext: ext.slice(1),
+        ext: ext,
         type: getFileTypeByExt(ext),
         count: 1
       }
@@ -746,7 +738,7 @@ class FileStorage {
         path: destPath,
         created_at: new Date().toISOString(),
         size: stats.size,
-        ext: ext.slice(1),
+        ext: ext,
         type: getFileTypeByExt(ext),
         count: 1
       }

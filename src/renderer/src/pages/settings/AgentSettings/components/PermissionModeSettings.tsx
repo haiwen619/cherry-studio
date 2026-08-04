@@ -16,6 +16,9 @@ import {
   SettingsItem,
   SettingsTitle
 } from '../shared'
+import { sanitizeAllowedToolIds } from './toolSelection'
+
+const FULL_AUTO_MODE_COLOR = '#ff7a45'
 
 export const PermissionModeSettings: FC<AgentOrSessionSettingsProps> = ({ agentBase, update }) => {
   const { t } = useTranslation()
@@ -30,7 +33,7 @@ export const PermissionModeSettings: FC<AgentOrSessionSettingsProps> = ({ agentB
   const autoToolIds = useMemo(() => computeModeDefaults(selectedMode, availableTools), [availableTools, selectedMode])
   const approvedToolIds = useMemo(() => {
     const allowed = agentBase?.allowed_tools ?? []
-    const sanitized = allowed.filter((id) => availableTools.some((tool) => tool.id === id))
+    const sanitized = sanitizeAllowedToolIds(allowed, availableTools)
     const merged = uniq([...sanitized, ...autoToolIds])
     return merged
   }, [agentBase?.allowed_tools, autoToolIds, availableTools])
@@ -142,9 +145,11 @@ export const PermissionModeSettings: FC<AgentOrSessionSettingsProps> = ({ agentB
                 {/* Body */}
                 {showCaution && (
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-start gap-2 rounded-md bg-[var(--color-error-bg)]">
-                      <ShieldAlert className="flex-shrink-0 text-[var(--color-error)]" size={16} />
-                      <span className="text-[var(--color-error)] text-xs">
+                    <div
+                      className="flex items-start gap-2 rounded-md"
+                      style={{ background: `color-mix(in srgb, ${FULL_AUTO_MODE_COLOR} 8%, transparent)` }}>
+                      <ShieldAlert className="flex-shrink-0" size={16} color={FULL_AUTO_MODE_COLOR} />
+                      <span className="text-xs" style={{ color: FULL_AUTO_MODE_COLOR }}>
                         {t(
                           'agent.settings.tooling.permissionMode.bypassPermissions.warning',
                           'Use with caution — all tools will run without asking for approval.'

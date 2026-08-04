@@ -27,14 +27,15 @@ import {
   isGemini3ProModel,
   isGemini31FlashLiteModel,
   isGemini31ProModel,
-  isKimi25Model,
+  isKimi25OrNewerModel,
+  isSupportAdaptiveThinkingClaudeModel,
   withModelIdAndNameAsId
 } from './utils'
 import { isTextToImageModel } from './vision'
 
 // Reasoning models
 export const REASONING_REGEX =
-  /^(?!.*-non-reasoning\b)(o\d+(?:-[\w-]+)?|.*\b(?:reasoning|reasoner|thinking|think)\b.*|.*-[rR]\d+.*|.*\bqwq(?:-[\w-]+)?\b.*|.*\bhunyuan-t1(?:-[\w-]+)?\b.*|.*\bglm-zero-preview\b.*|.*\bgrok-(?:3-mini|4|4-fast)(?:-[\w-]+)?\b.*)$/i
+  /^(?!.*-non-reasoning\b)(o\d+(?:-[\w-]+)?|.*\b(?:reasoning|reasoner|thinking|think)\b.*|.*-[rR]\d+.*|.*\bqwq(?:-[\w-]+)?\b.*|.*\bhunyuan-t1(?:-[\w-]+)?\b.*|.*\bglm-zero-preview\b.*|.*\bgrok-(?:3-mini|4|4-fast|build)(?:-[\w-]+)?\b.*)$/i
 
 // 模型类型到支持的reasoning_effort的映射表
 // TODO: refactor this. too many identical options
@@ -63,27 +64,37 @@ export const MODEL_SUPPORTED_REASONING_EFFORT = {
   gpt_oss: ['low', 'medium', 'high'] as const,
   grok: ['low', 'high'] as const,
   grok4_fast: ['auto'] as const,
+  grok_4_3: ['none', 'low', 'medium', 'high'] as const,
   gemini2_flash: ['low', 'medium', 'high', 'auto'] as const,
   gemini2_pro: ['low', 'medium', 'high', 'auto'] as const,
   // Also Gemini 3.1 Flash(-lite)
   gemini3_flash: ['minimal', 'low', 'medium', 'high'] as const,
   gemini3_pro: ['low', 'high'] as const,
   gemini3_1_pro: ['low', 'medium', 'high'] as const,
+  // Google-hosted Gemma 4 documents `minimal` as the closest supported near-off
+  // setting for most requests, but does not guarantee thinking is fully disabled.
+  // Keep the formal UI options aligned with the API guarantee and omit `none`.
+  gemma4_hosted: ['minimal', 'high'] as const,
   qwen: ['low', 'medium', 'high'] as const,
   qwen_thinking: ['low', 'medium', 'high'] as const,
   doubao: ['auto', 'high'] as const,
   doubao_no_auto: ['high'] as const,
   doubao_after_251015: ['minimal', 'low', 'medium', 'high'] as const,
+  minimax_m3: ['auto'] as const,
   hunyuan: ['auto'] as const,
   mimo: ['auto'] as const,
   zhipu: ['auto'] as const,
   perplexity: ['low', 'medium', 'high'] as const,
   deepseek_hybrid: ['auto'] as const,
+  deepseek_v4: ['high', 'xhigh'] as const,
   kimi_k2_5: ['none', 'auto'] as const,
+  kimi_always_think: ['auto'] as const,
+  longcat: ['auto'] as const,
   // Claude 3.7, 4.0, 4.5 reasoning models
   claude: ['low', 'medium', 'high'] as const,
   // Claude 4.6 supports low, medium, high, xhigh (xhigh is mapped to max in API)
-  claude46: ['low', 'medium', 'high', 'xhigh'] as const
+  claude46: ['low', 'medium', 'high', 'xhigh'] as const,
+  mistral: ['high'] as const
 } as const satisfies ReasoningEffortConfig
 
 // Model type to supported options mapping
@@ -103,24 +114,31 @@ export const MODEL_SUPPORTED_OPTIONS: ThinkingOptionConfig = {
   gpt_oss: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gpt_oss] as const,
   grok: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.grok] as const,
   grok4_fast: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.grok4_fast] as const,
+  grok_4_3: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.grok_4_3] as const,
   gemini2_flash: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.gemini2_flash] as const,
   gemini2_pro: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gemini2_pro] as const,
   gemini3_flash: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gemini3_flash] as const,
   gemini3_pro: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gemini3_pro] as const,
   gemini3_1_pro: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gemini3_1_pro] as const,
+  gemma4_hosted: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.gemma4_hosted] as const,
   qwen: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.qwen] as const,
   qwen_thinking: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.qwen_thinking] as const,
   doubao: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.doubao] as const,
   doubao_no_auto: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.doubao_no_auto] as const,
   doubao_after_251015: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.doubao_after_251015] as const,
+  minimax_m3: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.minimax_m3] as const,
   mimo: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.mimo] as const,
   hunyuan: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.hunyuan] as const,
   zhipu: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.zhipu] as const,
   perplexity: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.perplexity] as const,
   deepseek_hybrid: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.deepseek_hybrid] as const,
+  deepseek_v4: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.deepseek_v4] as const,
   kimi_k2_5: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.kimi_k2_5] as const,
+  kimi_always_think: ['default', ...MODEL_SUPPORTED_REASONING_EFFORT.kimi_always_think] as const,
+  longcat: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.longcat] as const,
   claude: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.claude] as const,
-  claude46: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.claude46] as const
+  claude46: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.claude46] as const,
+  mistral: ['default', 'none', ...MODEL_SUPPORTED_REASONING_EFFORT.mistral] as const
 } as const
 
 // TODO: add ut
@@ -129,7 +147,9 @@ const _getThinkModelType = (model: Model): ThinkingModelType => {
   const modelId = getLowerBaseModelName(model.id)
   if (isClaudeReasoningModel(model)) {
     thinkingModelType = 'claude'
-    if (isClaude46SeriesModel(model)) {
+    // Opus 4.7+ reuses the 4.6 effort list (low/medium/high/xhigh); provider-level
+    // mapping still distinguishes them (Opus 4.7+ sends native 'xhigh', 4.6 sends 'max').
+    if (isClaude46SeriesModel(model) || isSupportAdaptiveThinkingClaudeModel(model)) {
       thinkingModelType = 'claude46'
     }
   } else if (isOpenAIDeepResearchModel(model)) {
@@ -167,10 +187,14 @@ const _getThinkModelType = (model: Model): ThinkingModelType => {
     thinkingModelType = 'gpt_oss'
   } else if (isSupportedReasoningEffortOpenAIModel(model)) {
     thinkingModelType = 'o'
+  } else if (isGrok43Model(model)) {
+    thinkingModelType = 'grok_4_3'
   } else if (isGrok4FastReasoningModel(model)) {
     thinkingModelType = 'grok4_fast'
   } else if (isSupportedThinkingTokenGeminiModel(model)) {
-    if (isGemini3FlashModel(model) || isGemini31FlashLiteModel(model)) {
+    if (isHostedGemma4ThinkingModel(model)) {
+      thinkingModelType = 'gemma4_hosted'
+    } else if (isGemini3FlashModel(model) || isGemini31FlashLiteModel(model)) {
       thinkingModelType = 'gemini3_flash'
     } else if (isGemini3ProModel(model)) {
       thinkingModelType = 'gemini3_pro'
@@ -196,18 +220,28 @@ const _getThinkModelType = (model: Model): ThinkingModelType => {
     } else {
       thinkingModelType = 'doubao_no_auto'
     }
+  } else if (isMiniMaxM3Model(model)) {
+    thinkingModelType = 'minimax_m3'
   } else if (isSupportedThinkingTokenHunyuanModel(model)) {
     thinkingModelType = 'hunyuan'
   } else if (isSupportedReasoningEffortPerplexityModel(model)) {
     thinkingModelType = 'perplexity'
   } else if (isSupportedThinkingTokenZhipuModel(model)) {
     thinkingModelType = 'zhipu'
+  } else if (isDeepSeekV4PlusModel(model)) {
+    thinkingModelType = 'deepseek_v4'
   } else if (isDeepSeekHybridInferenceModel(model)) {
     thinkingModelType = 'deepseek_hybrid'
   } else if (isSupportedThinkingTokenMiMoModel(model)) {
     thinkingModelType = 'mimo'
   } else if (isSupportedThinkingTokenKimiModel(model)) {
-    thinkingModelType = 'kimi_k2_5'
+    // kimi-k2.7-code is an always-think model: no 'none' option, only 'auto'.
+    // See isKimiK27CodeModel for the full reasoning.
+    thinkingModelType = isKimiK27CodeModel(model) ? 'kimi_always_think' : 'kimi_k2_5'
+  } else if (isSupportedThinkingTokenLongCatModel(model)) {
+    thinkingModelType = 'longcat'
+  } else if (isMistralReasoningModel(model)) {
+    thinkingModelType = 'mistral'
   }
   return thinkingModelType
 }
@@ -295,8 +329,10 @@ function _isSupportedThinkingTokenModel(model: Model): boolean {
     isSupportedThinkingTokenDoubaoModel(model) ||
     isSupportedThinkingTokenHunyuanModel(model) ||
     isSupportedThinkingTokenZhipuModel(model) ||
+    isMiniMaxM3Model(model) ||
     isSupportedThinkingTokenMiMoModel(model) ||
     isSupportedThinkingTokenKimiModel(model) ||
+    isSupportedThinkingTokenLongCatModel(model) ||
     isSupportedThinkingTokenDeepSeekModel(model)
   )
 }
@@ -318,13 +354,18 @@ export function isSupportedReasoningEffortModel(model?: Model): boolean {
   return (
     isSupportedReasoningEffortOpenAIModel(model) ||
     isSupportedReasoningEffortGrokModel(model) ||
-    isSupportedReasoningEffortPerplexityModel(model)
+    isSupportedReasoningEffortPerplexityModel(model) ||
+    isMistralReasoningModel(model)
   )
 }
 
 export function isSupportedReasoningEffortGrokModel(model?: Model): boolean {
   if (!model) {
     return false
+  }
+
+  if (isGrok43Model(model)) {
+    return true
   }
 
   const modelId = getLowerBaseModelName(model.id)
@@ -338,6 +379,14 @@ export function isSupportedReasoningEffortGrokModel(model?: Model): boolean {
   }
 
   return false
+}
+
+// Mistral Small models with adjustable reasoning (mistral-small-2603+)
+// Note: magistral-* models reason natively and do NOT accept reasoning_effort parameter
+export function isMistralReasoningModel(model?: Model): boolean {
+  if (!model) return false
+  const modelId = getLowerBaseModelName(model.id)
+  return modelId.includes('mistral-small-2603')
 }
 
 /**
@@ -359,6 +408,22 @@ export function isGrok4FastReasoningModel(model?: Model): boolean {
   return modelId.includes('grok-4-fast') && !modelId.includes('non-reasoning')
 }
 
+/**
+ * Checks if the model is Grok 4.3
+ * Explicitly excludes non-reasoning variants (models with 'non-reasoning' in their ID)
+ *
+ * grok-4.3 is the first xAI model to natively support reasoning_effort with 4 levels:
+ * none, low, medium, high
+ */
+export function isGrok43Model(model?: Model): boolean {
+  if (!model) {
+    return false
+  }
+
+  const modelId = getLowerBaseModelName(model.id)
+  return modelId.includes('grok-4.3') && !modelId.includes('non-reasoning')
+}
+
 export function isGrokReasoningModel(model?: Model): boolean {
   if (!model) {
     return false
@@ -366,7 +431,8 @@ export function isGrokReasoningModel(model?: Model): boolean {
   const modelId = getLowerBaseModelName(model.id)
   if (
     isSupportedReasoningEffortGrokModel(model) ||
-    (modelId.includes('grok-4') && !modelId.includes('non-reasoning'))
+    (modelId.includes('grok-4') && !modelId.includes('non-reasoning')) ||
+    modelId.includes('grok-build')
   ) {
     return true
   }
@@ -395,8 +461,21 @@ export function isGeminiReasoningModel(model?: Model): boolean {
 export const GEMINI_THINKING_MODEL_REGEX =
   /gemini-(?:2\.5.*(?:-latest)?|3(?:\.\d+)?-(?:flash|pro)(?:-preview)?|flash-latest|pro-latest|flash-lite-latest)(?:-[\w-]+)*$/i
 
+export const isHostedGemma4ThinkingModel = (model?: Model): boolean => {
+  if (!model) {
+    return false
+  }
+
+  const modelId = getLowerBaseModelName(model.id, '/')
+  return model.provider?.toLowerCase() === 'gemini' && modelId.startsWith('gemma-4-')
+}
+
 export const isSupportedThinkingTokenGeminiModel = (model: Model): boolean => {
   const modelId = getLowerBaseModelName(model.id, '/')
+  if (isHostedGemma4ThinkingModel(model)) {
+    return true
+  }
+
   if (GEMINI_THINKING_MODEL_REGEX.test(modelId)) {
     // ref: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
     if (modelId.includes('gemini-3-pro-image')) {
@@ -494,7 +573,7 @@ export function isQwenAlwaysThinkModel(model?: Model): boolean {
 
 // Doubao 支持思考模式的模型正则
 export const DOUBAO_THINKING_MODEL_REGEX =
-  /doubao-(?:1[.-]5-thinking-vision-pro|1[.-]5-thinking-pro-m|seed-1[.-][68](?:-flash)?(?!-(?:thinking)(?:-|$))|seed-code(?:-preview)?(?:-\d+)?|seed-2[.-]0(?:-[\w-]+)?)(?:-[\w-]+)*/i
+  /doubao-(?:1[.-]5-thinking-vision-pro|1[.-]5-thinking-pro-m|seed-1[.-][68](?:-flash)?(?!-(?:thinking)(?:-|$))|seed-code(?:-preview)?(?:-\d+)?|seed-2[.-]0(?:-[\w-]+)?|seed-2[.-]1(?:-[\w-]+)?|seed-evolving)(?:-[\w-]+)*/i
 
 // 支持 auto 的 Doubao 模型 doubao-seed-1.6-xxx doubao-seed-1-6-xxx  doubao-1-5-thinking-pro-m-xxx
 // Auto thinking is no longer supported after version 251015, see https://console.volcengine.com/ark/region:ark+cn-beijing/model/detail?Id=doubao-seed-1-6
@@ -507,7 +586,7 @@ export function isDoubaoThinkingAutoModel(model: Model): boolean {
 }
 
 export function isDoubaoSeedAfter251015(model: Model): boolean {
-  const pattern = /doubao-seed-1-6-(?:lite-)?251015|doubao-seed-2[.-]0/i
+  const pattern = /doubao-seed-1-6-(?:lite-)?251015|doubao-seed-2[.-]0|doubao-seed-2[.-]1|doubao-seed-evolving/i
   return pattern.test(model.id) || pattern.test(model.name)
 }
 
@@ -552,7 +631,8 @@ export function isClaudeReasoningModel(model?: Model): boolean {
     modelId.includes('claude-3.7-sonnet') ||
     modelId.includes('claude-sonnet-4') ||
     modelId.includes('claude-opus-4') ||
-    modelId.includes('claude-haiku-4')
+    modelId.includes('claude-haiku-4') ||
+    modelId.includes('claude-fable')
   )
 }
 
@@ -609,24 +689,71 @@ export const isSupportedThinkingTokenZhipuModel = (model: Model): boolean => {
 
 export const isSupportedThinkingTokenMiMoModel = (model: Model): boolean => {
   const modelId = getLowerBaseModelName(model.id, '/')
-  return ['mimo-v2-flash', 'mimo-v2-pro', 'mimo-v2-omni'].some((id) => modelId.includes(id))
+  return ['mimo-v2-flash', 'mimo-v2-pro', 'mimo-v2-omni', 'mimo-v2.5', 'mimo-v2.5-pro'].includes(modelId)
 }
 
 /**
  * Detects whether a Kimi model supports thinking control
  *
  * This function identifies Kimi models that support thinking token control.
- * Currently only supports Kimi K2.5 and its variants.
+ * Currently only supports Kimi K2.5 / K2.6 and their variants.
  *
  * @param model - The model object to check
  * @returns true if the model supports thinking control, false otherwise
  */
 const _isSupportedThinkingTokenKimiModel = (model: Model): boolean => {
-  return isKimi25Model(model)
+  return isKimi25OrNewerModel(model)
 }
 
 export const isSupportedThinkingTokenKimiModel = (model: Model): boolean => {
   const { idResult, nameResult } = withModelIdAndNameAsId(model, _isSupportedThinkingTokenKimiModel)
+  return idResult || nameResult
+}
+
+/**
+ * Detects whether the model is the Kimi K2.7 Code variant.
+ *
+ * Per Moonshot's official docs, `kimi-k2.7-code` is an "always-think" model:
+ *   - Only accepts `{ type: 'enabled' }` for the `thinking` parameter
+ *   - Rejects `{ type: 'disabled' }` and any other value with an API error
+ *   - Does not accept `budget_tokens` (the default `{"type": "enabled"}` shape only)
+ *
+ * Use this helper to short-circuit thinking-control branches that would otherwise
+ * emit unsupported parameters for this model. Mirrors the `isMiniMaxM3Model` /
+ * `isQwenAlwaysThinkModel` pattern (always-think variants get their own predicate
+ * rather than ad-hoc string checks at every call site).
+ */
+const _isKimiK27CodeModel = (model: Model): boolean => {
+  const modelId = getLowerBaseModelName(model.id, '/')
+  // Anchored: matches `kimi-k2.7-code` with optional trailing `-<segment>`.
+  // Avoids accidentally matching future variants like `kimi-k2.7-coder` or
+  // model ids that embed `k2.7-code` as a substring (e.g. `k2.7-coder-preview`).
+  return /^kimi-k2\.7-code(?:-[\w-]+)?$/i.test(modelId)
+}
+
+export const isKimiK27CodeModel = (model?: Model): boolean => {
+  if (!model) return false
+  const { idResult, nameResult } = withModelIdAndNameAsId(model, _isKimiK27CodeModel)
+  return idResult || nameResult
+}
+
+export const isSupportedThinkingTokenLongCatModel = (model?: Model): boolean => {
+  if (!model) return false
+  const modelId = getLowerBaseModelName(model.id, '/')
+  return /^longcat-2\.0(?:-[\w-]+)?$/i.test(modelId)
+}
+
+/**
+ * Matches DeepSeek V4+ models (e.g., deepseek-v4-flash, deepseek-v4-pro, deepseek-v5-xxx).
+ * V4+ models default to thinking enabled and support reasoning_effort: "high" | "max".
+ */
+export const isDeepSeekV4PlusModel = (model: Model) => {
+  const { idResult, nameResult } = withModelIdAndNameAsId(model, (model) => {
+    // Ignore routed provider suffix chains like :deepseek or :deepseek:together.
+    const modelId = getLowerBaseModelName(model.id).split(':', 1)[0]
+    // Match deepseek-v{N} where N >= 4, with any optional suffix
+    return /(\w+-)?deepseek-v([4-9]|\d{2,})([.-]\w+)*$/.test(modelId)
+  })
   return idResult || nameResult
 }
 
@@ -647,7 +774,7 @@ export const isDeepSeekHybridInferenceModel = (model: Model) => {
       modelId.includes('deepseek-chat')
     )
   })
-  return idResult || nameResult
+  return idResult || nameResult || isDeepSeekV4PlusModel(model)
 }
 
 export const isLingReasoningModel = (model?: Model): boolean => {
@@ -683,7 +810,19 @@ export const isMiniMaxReasoningModel = (model?: Model): boolean => {
     return false
   }
   const modelId = getLowerBaseModelName(model.id, '/')
-  return (['minimax-m1', 'minimax-m2', 'minimax-m2.1'] as const).some((id) => modelId.includes(id))
+  return (['minimax-m1', 'minimax-m2', 'minimax-m2.1', 'minimax-m2.5', 'minimax-m2.7', 'minimax-m3'] as const).some(
+    (id) => modelId.includes(id)
+  )
+}
+
+// MiniMax-M3 only accepts thinking.type 'adaptive' | 'disabled' on the OpenAI-compatible
+// endpoint, unlike M1/M2.x which use 'enabled'.
+export const isMiniMaxM3Model = (model?: Model): boolean => {
+  if (!model) {
+    return false
+  }
+  const modelId = getLowerBaseModelName(model.id, '/')
+  return /^minimax-m3(?:\.\d+)?(?:-[\w-]+)?$/i.test(modelId)
 }
 
 export const isBaichuanReasoningModel = (model?: Model): boolean => {
@@ -702,16 +841,15 @@ export const isBaichuanReasoningModel = (model?: Model): boolean => {
  * This function identifies Moonshot AI's Kimi series reasoning models.
  * Currently should only support:
  * - Kimi K2 Thinking and its variants (including -turbo suffix)
- * - Kimi K2.5
+ * - Kimi K2.5+ (K2.5, K2.6, ...) and K3+ (K3, K3.x, K4, ...)
  *
  * @param model - The model object to check, can be undefined
  * @returns true if it's a Kimi reasoning model, false otherwise
  */
 const _isKimiReasoningModel = (model: Model): boolean => {
   const modelId = getLowerBaseModelName(model.id, '/')
-  // Match kimi-k2-thinking, kimi-k2-thinking-turbo, or kimi-k2.5
-  // The regex ensures no extra suffixes after these patterns
-  return /^kimi-k2-thinking(?:-turbo)?$|^kimi-k2\.5(?:-\w)*$/.test(modelId)
+  // Match kimi-k2-thinking, kimi-k2-thinking-turbo, or kimi-k2.5+ / kimi-k3+
+  return /^kimi-k2-thinking(?:-turbo)?$|^kimi-k(?:2\.[5-9]\d*|[3-9]\d*)(?:[.-]\w+)*$/.test(modelId)
 }
 
 export function isKimiReasoningModel(model?: Model): boolean {
@@ -759,7 +897,9 @@ export function isReasoningModel(model?: Model): boolean {
     isMiMoReasoningModel(model) ||
     isBaichuanReasoningModel(model) ||
     isKimiReasoningModel(model) ||
+    isSupportedThinkingTokenLongCatModel(model) ||
     modelId.includes('magistral') ||
+    modelId.includes('mistral-small-2603') ||
     modelId.includes('pangu-pro-moe') ||
     modelId.includes('seed-oss') ||
     modelId.includes('deepseek-v3.2-speciale') ||
@@ -798,6 +938,9 @@ const THINKING_TOKEN_MAP: Record<string, { min: number; max: number }> = {
   'qwen3-(?!max).*$': { min: 1024, max: 38_912 },
 
   // Claude models (supports AWS Bedrock 'anthropic.' prefix, GCP Vertex AI '@' separator, and '-v1:0' suffix)
+  // Opus 4.7+ supports 128K output tokens. Uses adaptive thinking (no budgetTokens sent),
+  // but the limit entry is still consulted for the Poe / openai-compatible fallback paths.
+  '(?:anthropic\\.)?claude-opus-4[.-](?:[7-9]|[1-9]\\d)(?:[@\\-:][\\w\\-:]+)?$': { min: 1024, max: 128_000 },
   // Opus 4.6 supports 128K output tokens
   '(?:anthropic\\.)?claude-opus-4[.-]6(?:[@\\-:][\\w\\-:]+)?$': { min: 1024, max: 128_000 },
   // Sonnet 4.6, and Haiku is assumed to be also 64k
@@ -856,7 +999,7 @@ export const isFixedReasoningModel = (model: Model) =>
 // https://platform.moonshot.cn/docs/guide/use-kimi-k2-thinking-model#%E5%A4%9A%E6%AD%A5%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8
 /** @deprecated No longer used. */
 const INTERLEAVED_THINKING_MODEL_REGEX =
-  /minimax-m2(.(\d+))?(?:-[\w-]+)?|mimo-v2-flash|glm-5(?:.\d+)?(?:-[\w-]+)?|glm-4.(\d+)(?:-[\w-]+)?|kimi-k2-thinking?|kimi-k2.5$/i
+  /minimax-m2(.(\d+))?(?:-[\w-]+)?|mimo-v2-flash|glm-5(?:.\d+)?(?:-[\w-]+)?|glm-4.(\d+)(?:-[\w-]+)?|kimi-k2-thinking?|kimi-k2\.[56](?:-[\w-]+)?$/i
 
 /**
  * Determines whether the given model supports interleaved thinking.

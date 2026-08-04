@@ -121,6 +121,15 @@ describe('isFunctionCallingModel', () => {
     expect(isFunctionCallingModel(createModel({ id: 'deepseek/deepseek-v3.2-speciale' }))).toBe(false)
   })
 
+  it('excludes deepseek-r1 reasoning models', () => {
+    expect(isFunctionCallingModel(createModel({ id: 'deepseek-r1:1.5b' }))).toBe(false)
+    expect(isFunctionCallingModel(createModel({ id: 'deepseek-r1:7b' }))).toBe(false)
+    expect(isFunctionCallingModel(createModel({ id: 'deepseek-r1:70b' }))).toBe(false)
+    expect(isFunctionCallingModel(createModel({ id: 'deepseek-r1' }))).toBe(false)
+    expect(isFunctionCallingModel(createModel({ id: 'deepseek-r1-16k' }))).toBe(false)
+    expect(isFunctionCallingModel(createModel({ id: 'ollama/deepseek-r1:1.5b' }))).toBe(false)
+  })
+
   it('returns true when identified as deepseek hybrid inference model', () => {
     deepSeekHybridMock.mockReturnValueOnce(true)
     expect(isFunctionCallingModel(createModel({ id: 'deepseek-v3-1', provider: 'custom' }))).toBe(true)
@@ -139,6 +148,7 @@ describe('isFunctionCallingModel', () => {
   it('supports kimi models through kimi-k2 regex match', () => {
     expect(isFunctionCallingModel(createModel({ id: 'kimi-k2-0711-preview', provider: 'moonshot' }))).toBe(true)
     expect(isFunctionCallingModel(createModel({ id: 'kimi-k2', provider: 'kimi' }))).toBe(true)
+    expect(isFunctionCallingModel(createModel({ id: 'kimi-k2.6', provider: 'moonshot' }))).toBe(true)
   })
 
   it('supports deepseek models through deepseek regex match', () => {
@@ -152,6 +162,10 @@ describe('isFunctionCallingModel', () => {
     expect(isFunctionCallingModel(createModel({ id: 'qwen3.5-plus', provider: 'dashscope' }))).toBe(true)
     expect(isFunctionCallingModel(createModel({ id: 'qwen3.5-plus-2026-02-15', provider: 'dashscope' }))).toBe(true)
     expect(isFunctionCallingModel(createModel({ id: 'qwen3.5-397b-a17b', provider: 'dashscope' }))).toBe(true)
+  })
+
+  it('supports LongCat-2.0 tool calling declared by LongCat model details', () => {
+    expect(isFunctionCallingModel(createModel({ id: 'LongCat-2.0', provider: 'longcat' }))).toBe(true)
   })
 
   describe('MiniMax M2.x Models', () => {
@@ -171,9 +185,26 @@ describe('isFunctionCallingModel', () => {
       expect(isFunctionCallingModel(createModel({ id: 'minimax-m2.7-highspeed', provider: 'minimax' }))).toBe(true)
     })
 
+    it('supports minimax-m3 model', () => {
+      expect(isFunctionCallingModel(createModel({ id: 'minimax-m3', provider: 'minimax' }))).toBe(true)
+      expect(isFunctionCallingModel(createModel({ id: 'MiniMax-M3', provider: 'minimax' }))).toBe(true)
+    })
+
     it('supports MiniMax-M2.7 with capital letters', () => {
       expect(isFunctionCallingModel(createModel({ id: 'MiniMax-M2.7', provider: 'minimax' }))).toBe(true)
       expect(isFunctionCallingModel(createModel({ id: 'MiniMax-M2.7-highspeed', provider: 'minimax' }))).toBe(true)
+    })
+  })
+
+  describe('MiMo V2.5 Models', () => {
+    it('supports function calling for V2.5 chat models', () => {
+      expect(isFunctionCallingModel(createModel({ id: 'mimo-v2.5', provider: 'mimo' }))).toBe(true)
+      expect(isFunctionCallingModel(createModel({ id: 'mimo-v2.5-pro', provider: 'mimo' }))).toBe(true)
+    })
+
+    it('does not treat V2.5 speech models as function calling chat models', () => {
+      expect(isFunctionCallingModel(createModel({ id: 'mimo-v2.5-tts', provider: 'mimo' }))).toBe(false)
+      expect(isFunctionCallingModel(createModel({ id: 'mimo-v2.5-tts-voiceclone', provider: 'mimo' }))).toBe(false)
     })
   })
 
@@ -224,6 +255,38 @@ describe('isFunctionCallingModel', () => {
         name: 'doubao-seed-2.0-pro-260215',
         provider: 'doubao',
         group: 'Doubao-Seed-2.0'
+      }
+      expect(isFunctionCallingModel(model)).toBe(true)
+    })
+  })
+
+  describe('Doubao Seed 2.1 and Evolving Models', () => {
+    it('should identify doubao-seed-2-1-pro-260628 as function calling model', () => {
+      const model: Model = {
+        id: 'doubao-seed-2-1-pro-260628',
+        name: 'doubao-seed-2-1-pro',
+        provider: 'doubao',
+        group: 'Doubao-Seed-2.1'
+      }
+      expect(isFunctionCallingModel(model)).toBe(true)
+    })
+
+    it('should identify doubao-seed-2-1-turbo-260628 as function calling model', () => {
+      const model: Model = {
+        id: 'doubao-seed-2-1-turbo-260628',
+        name: 'doubao-seed-2-1-turbo',
+        provider: 'doubao',
+        group: 'Doubao-Seed-2.1'
+      }
+      expect(isFunctionCallingModel(model)).toBe(true)
+    })
+
+    it('should identify doubao-seed-evolving as function calling model', () => {
+      const model: Model = {
+        id: 'doubao-seed-evolving',
+        name: 'doubao-seed-evolving',
+        provider: 'doubao',
+        group: 'Doubao-Seed-Evolving'
       }
       expect(isFunctionCallingModel(model)).toBe(true)
     })

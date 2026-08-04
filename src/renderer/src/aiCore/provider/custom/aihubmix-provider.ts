@@ -45,14 +45,23 @@ export function createAihubmix(options: AihubmixProviderSettings = {}): Aihubmix
   const resolveApiKey = () =>
     loadApiKey({ apiKey: options.apiKey, environmentVariableName: 'AIHUBMIX_API_KEY', description: 'AiHubMix' })
 
+  // Note: Do not hard-code `Content-Type: application/json` here. `postJsonToApi`
+  // already defaults it for JSON endpoints, while `postFormDataToApi` (used by
+  // `OpenAICompatibleImageModel` for `/images/edits`) relies on fetch to set
+  // `multipart/form-data; boundary=...` automatically — forcing JSON here breaks
+  // image edits with "invalid character '-' in numeric literal" on the server.
   const authHeaders = (): Record<string, string> => ({
     Authorization: `Bearer ${resolveApiKey()}`,
-    'Content-Type': 'application/json',
     ...APP_CODE_HEADER,
     ...options.headers
   })
 
   const url = ({ path }: { path: string; modelId: string }) => `${withoutTrailingSlash(baseURL)}${path}`
+
+  // Derive the Gemini endpoint from the configured baseURL instead of hard-coding it:
+  // strip the trailing `/v1` (e.g. https://aihubmix.com/v1 -> https://aihubmix.com) and
+  // append Google's `/gemini/v1beta` path so a custom baseURL is respected.
+  const geminiBaseURL = `${(withoutTrailingSlash(baseURL) ?? baseURL).replace(/\/v1$/, '')}/gemini/v1beta`
 
   const createAnthropicModel = (modelId: string) => {
     const headers = authHeaders()
@@ -61,7 +70,13 @@ export function createAihubmix(options: AihubmixProviderSettings = {}): Aihubmix
       baseURL,
       headers: () => ({ ...headers, 'x-api-key': resolveApiKey() }),
       fetch: customFetch,
-      supportedUrls: () => ({ 'image/*': [/^https?:\/\/.*$/] })
+      supportedUrls: () => ({ 'image/*': [/^https?:\/\/.*$/] }),
+      // AiHubMix may route Claude models to Vertex/Bedrock backends, which reject the
+      // `structured-outputs-2025-11-13` beta header added by @ai-sdk/anthropic for
+      // claude-opus-4-6 / claude-sonnet-4-6 / claude-*-4-5 / claude-opus-4-1. Falling
+      // back to function-tool-based structured outputs keeps tool use (incl. MCP) working
+      // across all downstream backends. See issue #14375.
+      supportsNativeStructuredOutput: false
     })
   }
 
@@ -69,7 +84,7 @@ export function createAihubmix(options: AihubmixProviderSettings = {}): Aihubmix
     const headers = authHeaders()
     return new GoogleGenerativeAILanguageModel(modelId, {
       provider: `${AIHUBMIX_PROVIDER_NAME}.google`,
-      baseURL: 'https://aihubmix.com/gemini/v1beta',
+      baseURL: geminiBaseURL,
       headers: () => ({ ...headers, 'x-goog-api-key': resolveApiKey() }),
       fetch: customFetch,
       generateId: () => `${AIHUBMIX_PROVIDER_NAME}-${Date.now()}`,
@@ -79,7 +94,7 @@ export function createAihubmix(options: AihubmixProviderSettings = {}): Aihubmix
 
   const createOpenAICompatibleChatModel = (modelId: string): LanguageModelV3 =>
     new OpenAICompatibleChatLanguageModel(modelId, {
-      provider: `${AIHUBMIX_PROVIDER_NAME}.openai-compatible-chat`,
+      provider: `openai-compatible.${AIHUBMIX_PROVIDER_NAME}`,
       url,
       headers: authHeaders,
       fetch: customFetch
@@ -87,7 +102,7 @@ export function createAihubmix(options: AihubmixProviderSettings = {}): Aihubmix
 
   const createOpenAIChatModel = (modelId: string): LanguageModelV3 =>
     new OpenAIChatLanguageModel(modelId, {
-      provider: `${AIHUBMIX_PROVIDER_NAME}.openai-compatible-chat`,
+      provider: `openai-compatible.${AIHUBMIX_PROVIDER_NAME}`,
       url,
       headers: authHeaders,
       fetch: customFetch

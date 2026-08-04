@@ -2962,8 +2962,8 @@ const migrateConfig = {
     try {
       state.llm.providers.forEach((provider) => {
         if (provider.id === SystemProviderIds.cherryin) {
-          provider.apiHost = 'https://open.cherryin.cc'
-          provider.anthropicApiHost = 'https://open.cherryin.cc'
+          provider.apiHost = 'https://open.cherryin.net'
+          provider.anthropicApiHost = 'https://open.cherryin.net'
         }
       })
       state.llm.providers = moveProvider(state.llm.providers, SystemProviderIds.poe, 10)
@@ -3410,6 +3410,41 @@ const migrateConfig = {
       return state
     } catch (error) {
       logger.error('migrate 206 error', error as Error)
+      return state
+    }
+  },
+  '207': (state: RootState) => {
+    try {
+      state.llm.providers.forEach((provider) => {
+        if (provider.id === 'stepfun' && !provider.anthropicApiHost) {
+          provider.anthropicApiHost = 'https://api.stepfun.com'
+        }
+      })
+
+      logger.info('migrate 207 success')
+      return state
+    } catch (error) {
+      logger.error('migrate 207 error', error as Error)
+      return state
+    }
+  },
+  '208': (state: RootState) => {
+    try {
+      state.llm.providers.forEach((provider) => {
+        if (provider.id === SystemProviderIds.cherryin) {
+          if (provider.apiHost === 'https://open.cherryin.cc') {
+            provider.apiHost = 'https://open.cherryin.net'
+          }
+          if (provider.anthropicApiHost === 'https://open.cherryin.cc') {
+            provider.anthropicApiHost = 'https://open.cherryin.net'
+          }
+        }
+      })
+
+      logger.info('migrate 208 success')
+      return state
+    } catch (error) {
+      logger.error('migrate 208 error', error as Error)
       return state
     }
   }

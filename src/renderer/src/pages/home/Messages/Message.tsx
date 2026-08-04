@@ -43,6 +43,7 @@ interface Props {
   onSetMessages?: Dispatch<SetStateAction<Message[]>>
   onUpdateUseful?: (msgId: string) => void
   isGroupContextMessage?: boolean
+  isHorizontalMultiModelLayout?: boolean
 }
 
 const logger = loggerService.withContext('MessageItem')
@@ -65,7 +66,8 @@ const MessageItem: FC<Props> = ({
   hideMenuBar = false,
   isGrouped,
   onUpdateUseful,
-  isGroupContextMessage
+  isGroupContextMessage,
+  isHorizontalMultiModelLayout = false
 }) => {
   const { t } = useTranslation()
   const { assistant, setModel } = useAssistant(message.assistantId)
@@ -122,6 +124,7 @@ const MessageItem: FC<Props> = ({
   const isAssistantMessage = message.role === 'assistant'
   const isProcessing = isMessageProcessing(message)
   const showMenubar = !hideMenuBar && !isEditing && !isProcessing
+  const shouldReverseFooter = isLastMessage && (messageStyle === 'plain' || isAssistantMessage)
 
   const messageHighlightHandler = useCallback(
     (highlight: boolean = true) => {
@@ -222,7 +225,7 @@ const MessageItem: FC<Props> = ({
               style={{
                 fontFamily: messageFont === 'serif' ? 'var(--font-family-serif)' : 'var(--font-family)',
                 fontSize,
-                overflowY: 'visible'
+                overflowY: isHorizontalMultiModelLayout ? 'auto' : 'visible'
               }}>
               <MessageErrorBoundary>
                 <MessageContent message={message} />
@@ -234,7 +237,7 @@ const MessageItem: FC<Props> = ({
                   classNames={{
                     content: cn(
                       'flex-1 items-center justify-between',
-                      isLastMessage && messageStyle === 'plain' ? 'flex-row-reverse' : 'flex-row'
+                      shouldReverseFooter ? 'flex-row-reverse' : 'flex-row'
                     )
                   }}>
                   <MessageMenubar

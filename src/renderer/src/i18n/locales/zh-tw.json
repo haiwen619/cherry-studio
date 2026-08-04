@@ -298,16 +298,9 @@
         "button": "清除自訂路徑"
       },
       "customPath": "使用自訂路徑：{{path}}",
-      "error": {
-        "description": "在 Windows 上執行 Agent 需要 Git Bash。沒有它 Agent 無法運作。請從以下網址安裝 Git for Windows",
-        "recheck": "重新偵測 Git Bash 安裝",
-        "required": "在 Windows 上需要設定 Git Bash 路徑",
-        "title": "需要 Git Bash"
-      },
       "found": {
         "title": "已設定 Git Bash"
       },
-      "notFound": "找不到 Git Bash。請先安裝。",
       "pick": {
         "button": "選擇 Git Bash 路徑",
         "failed": "設定 Git Bash 路徑失敗",
@@ -316,7 +309,7 @@
       },
       "placeholder": "選擇 bash.exe 路徑",
       "success": "成功偵測到 Git Bash！",
-      "tooltip": "在 Windows 上執行 Agent 需要 Git Bash。如未安裝，請從 git-scm.com 下載安裝。"
+      "tooltip": "Git Bash 在 Windows 上是選用設定；若未設定或無法使用，Agent 將使用 PowerShell。"
     },
     "input": {
       "placeholder": "在這裡輸入您的訊息，使用 {{key}} 傳送 - @ 選擇路徑，/ 選擇命令",
@@ -639,6 +632,9 @@
         },
         "NotebookRead": {
           "description": "讀取並顯示 Jupyter notebook 內容"
+        },
+        "PowerShell": {
+          "description": "在你的環境中執行 PowerShell 命令"
         },
         "Read": {
           "description": "讀取檔案內容"
@@ -1600,6 +1596,7 @@
     "copy_failed": "複製失敗",
     "current": "目前",
     "cut": "剪下",
+    "decline": "拒絕",
     "default": "預設",
     "delete": "刪除",
     "delete_confirm": "確定要刪除嗎？",
@@ -1761,6 +1758,7 @@
     "detail": "錯誤詳細資訊",
     "details": "詳細資訊",
     "diagnosis": {
+      "abnormal_finish": "回覆異常結束，請重試或更換模型",
       "ai_button": "AI 診斷",
       "ai_done": "已診斷",
       "ai_loading": "正在診斷",
@@ -1776,10 +1774,13 @@
       "model_conflict": "診斷模型與出錯模型相同，無法進行診斷",
       "network": "無法連線到伺服器，請檢查網路或代理設定",
       "ocr": "OCR 識別引擎未初始化，請檢查 OCR 設定",
+      "output_truncated": "回覆達到最大長度後被截斷",
       "parse": "AI 回傳了無效的回應，請重試或切換模型",
       "payload": "請求內容過大，請減少檔案或文字大小",
       "proxy": "代理或 SSL 憑證錯誤，請檢查代理和網路設定",
       "quota": "帳戶額度已用完，請儲值或更換服務商",
+      "rate_limit": "請求過於頻繁，請稍等片刻再試，或更換為更高速率的模型",
+      "region": "服務在你所在的地區不可用，請設定代理或更換為可用的服務商",
       "server": "伺服器異常，建議稍後重試",
       "stream": "回應中斷，請檢查網路穩定性或重試",
       "unknown": "發生了一個錯誤",
@@ -1791,6 +1792,7 @@
     "http": {
       "400": "請求錯誤，請檢查請求參數是否正確。如果修改了模型設定，請重設到預設設定",
       "401": "身份驗證失敗，請檢查 API 金鑰是否正確",
+      "402": "需要付款。帳戶餘額或額度已用盡，請至服務商網站儲值，或切換至其他服務商",
       "403": "禁止存取，請確認帳號是否完成實名認證，或聯絡供應商詢問原因",
       "404": "模型不存在或請求路徑錯誤",
       "429": "請求過多，請稍後再試",
@@ -1936,6 +1938,7 @@
       "to_file": "儲存為圖片"
     },
     "code": "程式碼",
+    "code_block_progress": "正在產生 {{language}} · {{lines}} 行 · {{characters}} 字元",
     "empty_preview": "沒有內容可顯示",
     "generating": "產生中",
     "preview": "預覽",
@@ -2486,6 +2489,10 @@
       "completed": "已完成",
       "error": "發生錯誤",
       "groupHeader": "{{count}} 次工具呼叫",
+      "groupHeaderMessages": "{{count}} 則訊息",
+      "groupHeaderThinking": "{{count}} 次思考",
+      "groupHeaderWithDetails": "{{toolCount}} 次工具呼叫 · {{thinkingCount}} 次思考 · {{messageCount}} 則訊息",
+      "groupHeaderWithMessages": "{{toolCount}} 次工具呼叫 · {{messageCount}} 則訊息",
       "invoking": "呼叫中",
       "labels": {
         "bash": "執行命令",
@@ -2496,6 +2503,7 @@
         "mcpServerTool": "MCP 伺服器工具",
         "multiEdit": "批次編輯",
         "notebookEdit": "筆記本編輯",
+        "powerShell": "PowerShell",
         "readFile": "讀取檔案",
         "search": "搜尋",
         "skill": "技能",
@@ -2904,6 +2912,12 @@
     "title": "Ollama"
   },
   "onboarding": {
+    "privacy": {
+      "accept_and_continue": "同意並繼續",
+      "notice": "繼續即表示你已閱讀並同意",
+      "period": "。",
+      "policy": "隱私政策"
+    },
     "select_model": {
       "change_later": "您可以隨時在設定中更改此項目",
       "start": "開始使用",
@@ -2947,7 +2961,7 @@
     "install_progress": "安裝進度",
     "installed_at": "OpenClaw 安裝路徑",
     "migration": {
-      "description": "偵測到透過 npm 安裝的舊版本 OpenClaw，請重新安裝以取得最新官方版本。",
+      "description": "偵測到 PATH 中存在外部 OpenClaw 安裝，但 Cherry Studio 只使用受管理的 OpenClaw 二進位檔。請安裝受管理版本後繼續。",
       "install_button": "重新安裝 OpenClaw",
       "title": "OpenClaw 需要更新"
     },
@@ -3381,6 +3395,14 @@
     "source": "檢視原始碼",
     "zoom_in": "放大",
     "zoom_out": "縮小"
+  },
+  "privacy_policy": {
+    "title": "隱私協議"
+  },
+  "privacy_policy_update": {
+    "description_before_link": "我們更新了隱私協議。請查看最新的",
+    "policy": "隱私協議",
+    "title": "隱私協議更新"
   },
   "prompts": {
     "explanation": "幫我解釋一下這個概念",
@@ -5482,7 +5504,8 @@
         "documentation": "檢視官方文件以取得更多設定詳細資訊：",
         "learn_more": "瞭解更多",
         "location": "地區",
-        "location_help": "Vertex AI 服務地區，例如：us-central1",
+        "location_help": "Vertex AI 服務地區，例如：us-central1。此欄位不會從 Service Account JSON 自動帶入，需手動填寫。",
+        "location_placeholder": "選擇 Vertex AI 地區",
         "project_id": "專案 ID",
         "project_id_help": "您的 Google Cloud 專案 ID",
         "project_id_placeholder": "your-google-cloud-project-id",
@@ -5492,7 +5515,12 @@
           "client_email_help": "從 Google Cloud Console 下載的 JSON 金鑰檔案中的 client_email 欄位",
           "client_email_placeholder": "輸入服務帳戶 client email",
           "description": "使用服務帳戶進行身份驗證，適用於 ADC 無法使用的環境",
-          "incomplete_config": "請先完成服務帳戶設定",
+          "incomplete_config": "請先完整填寫所有必需的 Vertex AI 設定",
+          "json_input": "Service Account JSON",
+          "json_input_help": "貼上完整 JSON 金鑰內容。解析後只會儲存 project_id、client_email 和 private_key，並清空原始 JSON。",
+          "json_input_placeholder": "貼上完整的 Service Account JSON 金鑰內容",
+          "json_parse_error": "解析 Service Account JSON 失敗，請確認格式正確",
+          "json_parse_success": "Service Account JSON 已解析",
           "private_key": "私密金鑰",
           "private_key_help": "從 Google Cloud Console 下載的 JSON 金鑰檔案中的 private_key 欄位",
           "private_key_placeholder": "輸入服務帳戶私密金鑰",

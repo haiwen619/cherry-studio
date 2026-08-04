@@ -298,16 +298,9 @@
         "button": "Benutzerdefinierten Pfad löschen"
       },
       "customPath": "Benutzerdefinierter Pfad: {{path}}",
-      "error": {
-        "description": "Git Bash ist erforderlich, um Agents unter Windows auszuführen. Der Agent kann ohne es nicht funktionieren. Bitte installieren Sie Git für Windows von",
-        "recheck": "Überprüfe die Git Bash-Installation erneut",
-        "required": "Git Bash-Pfad ist unter Windows erforderlich",
-        "title": "Git Bash erforderlich"
-      },
       "found": {
         "title": "Git Bash konfiguriert"
       },
-      "notFound": "Git Bash nicht gefunden. Bitte installieren Sie es zuerst.",
       "pick": {
         "button": "Git Bash Pfad auswählen",
         "failed": "Git Bash Pfad konnte nicht gesetzt werden",
@@ -316,7 +309,7 @@
       },
       "placeholder": "Wählen Sie den Pfad zu bash.exe",
       "success": "Git Bash erfolgreich erkannt!",
-      "tooltip": "Git Bash ist erforderlich, um Agenten unter Windows auszuführen. Installiere es von git-scm.com, falls es nicht verfügbar ist."
+      "tooltip": "Git Bash ist unter Windows optional. Wenn es nicht konfiguriert oder nicht verfügbar ist, verwendet der Agent PowerShell."
     },
     "input": {
       "placeholder": "Gib hier deine Nachricht ein, senden mit {{key}} – @ Pfad auswählen, / Befehl auswählen",
@@ -639,6 +632,9 @@
         },
         "NotebookRead": {
           "description": "Liest und zeigt den Inhalt von Jupyter-Notebooks an"
+        },
+        "PowerShell": {
+          "description": "Führt PowerShell-Befehle in Ihrer Umgebung aus"
         },
         "Read": {
           "description": "Liest die Inhalte von Dateien"
@@ -1600,6 +1596,7 @@
     "copy_failed": "Kopieren fehlgeschlagen",
     "current": "Aktuell",
     "cut": "Ausschneiden",
+    "decline": "Ablehnen",
     "default": "Standard",
     "delete": "Löschen",
     "delete_confirm": "Möchten Sie wirklich löschen?",
@@ -1761,6 +1758,7 @@
     "detail": "Fehlerdetails",
     "details": "Details",
     "diagnosis": {
+      "abnormal_finish": "Antwort wurde abnormal beendet, bitte erneut versuchen oder Modell wechseln",
       "ai_button": "KI-Diagnose",
       "ai_done": "Diagnostiziert",
       "ai_loading": "Wird diagnostiziert",
@@ -1776,10 +1774,13 @@
       "model_conflict": "Diagnosemodell ist identisch mit dem fehlerhaften Modell",
       "network": "Verbindung zum Server nicht möglich, Netzwerk- oder Proxy-Einstellungen prüfen",
       "ocr": "OCR-Engine nicht initialisiert, OCR-Einstellungen prüfen",
+      "output_truncated": "Antwort hat die maximale Länge erreicht und wurde abgeschnitten",
       "parse": "Die KI hat eine ungültige Antwort zurückgegeben, bitte versuchen Sie es erneut oder wechseln Sie das Modell.",
       "payload": "Anfrageinhalt zu groß, bitte verringern Sie die Datei- oder Textgröße",
       "proxy": "Proxy- oder SSL-Zertifikatsfehler, überprüfen Sie die Proxy- und Netzwerkeinstellungen",
       "quota": "Kontoguthaben aufgebraucht, bitte aufladen oder Anbieter wechseln",
+      "rate_limit": "Zu viele Anfragen in kurzer Zeit. Bitte kurz warten und erneut versuchen, oder zu einem Modell mit höherer Ratenbegrenzung wechseln",
+      "region": "Dienst in Ihrer Region nicht verfügbar. Konfigurieren Sie einen Proxy oder wechseln Sie zu einem Anbieter, der in Ihrem Gebiet verfügbar ist",
       "server": "Serverfehler, bitte später erneut versuchen",
       "stream": "Antwort unterbrochen, überprüfen Sie die Netzwerkstabilität oder versuchen Sie es erneut",
       "unknown": "Ein Fehler ist aufgetreten",
@@ -1791,6 +1792,7 @@
     "http": {
       "400": "Anfragefehler. Bitte überprüfen Sie die Anfrageparameter. Falls Modelleinstellungen geändert wurden, setzen Sie diese auf Standardwerte zurück",
       "401": "Authentifizierung fehlgeschlagen. Bitte überprüfen Sie, ob der API-Schlüssel korrekt ist",
+      "402": "Zahlung erforderlich. Ihr Kontoguthaben oder Kontingent ist aufgebraucht — bitte auf der Website des Anbieters aufladen oder zu einem anderen Anbieter wechseln",
       "403": "Zugriff verweigert. Bitte übersetzen Sie die spezifische Fehlermeldung für Details oder kontaktieren Sie den Dienstanbieter",
       "404": "Modell existiert nicht oder Anfragepfad ist fehlerhaft",
       "429": "Anfragelimit überschritten. Bitte versuchen Sie es später erneut",
@@ -2486,6 +2488,10 @@
       "completed": "Abgeschlossen",
       "error": "Fehler aufgetreten",
       "groupHeader": "{{count}} Toolaufrufe",
+      "groupHeaderMessages": "{{count}} Nachrichten",
+      "groupHeaderThinking": "{{count}} Gedanken",
+      "groupHeaderWithDetails": "{{toolCount}} Toolaufrufe · {{thinkingCount}} Gedanken · {{messageCount}} Nachrichten",
+      "groupHeaderWithMessages": "{{toolCount}} Toolaufrufe · {{messageCount}} Nachrichten",
       "invoking": "Wird aufgerufen",
       "labels": {
         "bash": "Bash",
@@ -2496,6 +2502,7 @@
         "mcpServerTool": "MCP-Server-Tool",
         "multiEdit": "MultiEdit",
         "notebookEdit": "NotizbuchBearbeiten",
+        "powerShell": "PowerShell",
         "readFile": "Datei lesen",
         "search": "Suche",
         "skill": "Fähigkeit",
@@ -2904,6 +2911,12 @@
     "title": "Ollama"
   },
   "onboarding": {
+    "privacy": {
+      "accept_and_continue": "Akzeptieren und fortfahren",
+      "notice": "Durch die Fortsetzung bestätigen Sie, dass Sie gelesen haben und zustimmen",
+      "period": ".",
+      "policy": "Datenschutzerklärung"
+    },
     "select_model": {
       "change_later": "Sie können dies jederzeit in den Einstellungen ändern.",
       "start": "Loslegen",
@@ -3381,6 +3394,14 @@
     "source": "Quellcode anzeigen",
     "zoom_in": "Vergrößern",
     "zoom_out": "Verkleinern"
+  },
+  "privacy_policy": {
+    "title": "Datenschutzrichtlinie"
+  },
+  "privacy_policy_update": {
+    "description_before_link": "Wir haben die Datenschutzrichtlinie aktualisiert. Bitte lesen Sie die neueste ",
+    "policy": "Datenschutzrichtlinie",
+    "title": "Datenschutzrichtlinie aktualisiert"
   },
   "prompts": {
     "explanation": "Helfen Sie mir, dieses Konzept zu erklären",
@@ -5482,7 +5503,8 @@
         "documentation": "Offizielle Dokumentation für weitere Konfigurationsdetails ansehen:",
         "learn_more": "Mehr erfahren",
         "location": "Region",
-        "location_help": "Vertex AI-Serviceregion, z.B. us-central1",
+        "location_help": "Vertex AI-Serviceregion, z.B. us-central1. Dieses Feld wird nicht aus dem Service Account JSON gelesen und muss manuell eingegeben werden.",
+        "location_placeholder": "Vertex AI-Region auswählen",
         "project_id": "Projekt-ID",
         "project_id_help": "Ihre Google Cloud Projekt-ID",
         "project_id_placeholder": "your-google-cloud-project-id",
@@ -5493,6 +5515,11 @@
           "client_email_placeholder": "Service Account-Client-E-Mail eingeben",
           "description": "Authentifizierung mit Service Account, geeignet für Umgebungen, in denen ADC nicht verwendet werden kann",
           "incomplete_config": "Bitte zuerst vollständig Service Account-Informationen konfigurieren",
+          "json_input": "Service Account JSON",
+          "json_input_help": "Fügen Sie den vollständigen JSON-Schlüsselinhalt ein. Nach dem Parsen werden nur project_id, client_email und private_key gespeichert, und das rohe JSON wird gelöscht.",
+          "json_input_placeholder": "Vollständigen Service Account JSON-Schlüsselinhalt einfügen",
+          "json_parse_error": "Service Account JSON konnte nicht geparst werden. Bitte prüfen Sie, ob das Format korrekt ist.",
+          "json_parse_success": "Service Account JSON geparst",
           "private_key": "Privater Schlüssel",
           "private_key_help": "private_key-Feld aus der JSON-Schlüsseldatei aus Google Cloud Console",
           "private_key_placeholder": "Service Account-Privat-Schlüssel eingeben",

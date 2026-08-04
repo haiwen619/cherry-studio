@@ -111,24 +111,31 @@ const ThinkModelTypes = [
   'gpt_oss',
   'grok',
   'grok4_fast',
+  'grok_4_3',
   'gemini2_flash',
   'gemini2_pro',
   'gemini3_flash',
   'gemini3_pro',
   'gemini3_1_pro',
+  'gemma4_hosted',
   'qwen',
   'qwen_thinking',
   'doubao',
   'doubao_no_auto',
   'doubao_after_251015',
+  'minimax_m3',
   'mimo',
   'hunyuan',
   'zhipu',
   'perplexity',
   'deepseek_hybrid',
+  'deepseek_v4',
   'kimi_k2_5',
+  'kimi_always_think',
+  'longcat',
   'claude',
-  'claude46'
+  'claude46',
+  'mistral'
 ] as const
 
 /** If the model's reasoning effort could be controlled, or its reasoning behavior could be turned on/off.

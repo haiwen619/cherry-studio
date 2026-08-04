@@ -1,8 +1,6 @@
 // src/main/services/agents/services/claudecode/index.ts
-import { fork } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import * as fs from 'node:fs'
-import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -13,8 +11,7 @@ import type {
   Options,
   SDKMessage,
   SdkPluginConfig,
-  SDKUserMessage,
-  SpawnedProcess
+  SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { Base64ImageSource, ContentBlockParam } from '@anthropic-ai/sdk/resources/messages/messages'
@@ -23,17 +20,12 @@ import { config as apiConfigService } from '@main/apiServer/config'
 import { validateModelId } from '@main/apiServer/utils'
 import { isWin } from '@main/constant'
 import AssistantServer from '@main/mcpServers/assistant'
-import BrowserServer from '@main/mcpServers/browser/server'
 import ClawServer from '@main/mcpServers/claw'
 import SkillsServer from '@main/mcpServers/skills'
 import WorkspaceMemoryServer from '@main/mcpServers/workspaceMemory'
 import { configManager } from '@main/services/ConfigManager'
-import {
-  getNodeProxyConfigFromEnvironment,
-  getProxyEnvironment,
-  getProxyProtocol
-} from '@main/services/proxy/nodeProxy'
-import { toAsarUnpackedPath } from '@main/utils'
+import { getProxyEnvironment } from '@main/services/proxy/nodeProxy'
+import { resolveClaudeExecutablePath } from '@main/utils/bundledBinaries'
 import { autoDiscoverGitBash, getBinaryPath } from '@main/utils/process'
 import { rtkRewrite } from '@main/utils/rtk'
 import getLoginShellEnvironment from '@main/utils/shell-env'
@@ -43,7 +35,7 @@ import {
   SOUL_MODE_DISALLOWED_TOOLS
 } from '@shared/agents/claudecode/constants'
 import { languageEnglishNameMap } from '@shared/config/languages'
-import { withoutTrailingApiVersion } from '@shared/utils'
+import { defaultAppHeaders, withoutTrailingApiVersion } from '@shared/utils'
 import { app } from 'electron'
 
 import type { GetAgentSessionResponse } from '../..'
@@ -60,10 +52,12 @@ import { channelService } from '../ChannelService'
 import { PromptBuilder } from '../cherryclaw/prompt'
 import { sessionService } from '../SessionService'
 import { buildNamespacedToolCallId } from './claude-stream-state'
+import { mergeUserEnvironmentVariables, withPreferredWindowsShellEnvironment } from './runtimeEnv'
 import { promptForToolApproval } from './tool-permissions'
+import { getRuntimeAllowedTools } from './tools'
 import { ClaudeStreamState, transformSDKMessageToStreamParts } from './transform'
+import { getFirstConfiguredApiKey, with1mContextSuffix } from './utils'
 
-const require_ = createRequire(import.meta.url)
 const logger = loggerService.withContext('ClaudeCodeService')
 const promptBuilder = new PromptBuilder()
 const DEFAULT_AUTO_ALLOW_TOOLS = new Set(['Read', 'Glob', 'Grep'])
@@ -71,6 +65,16 @@ const IMAGE_MAX_DIMENSION = 2000
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024 // 5MB API limit
 const shouldAutoApproveTools = process.env.CHERRY_AUTO_ALLOW_TOOLS === '1'
 const NO_RESUME_COMMANDS = ['/clear']
+
+const getAnthropicCustomHeaders = (headers?: Record<string, string>): string => {
+  const merged = {
+    ...defaultAppHeaders(),
+    ...headers
+  }
+  return Object.entries(merged)
+    .map(([name, value]) => `${name}: ${value}`)
+    .join('\n')
+}
 
 const getLanguageInstruction = () => {
   const lang = configManager.getLanguage()
@@ -92,17 +96,6 @@ class ClaudeCodeStream extends EventEmitter implements AgentStream {
 }
 
 class ClaudeCodeService implements AgentServiceInterface {
-  private claudeExecutablePath: string
-  private claudeProxyBootstrapPath: string
-
-  constructor() {
-    // Resolve Claude Code CLI robustly (works in dev and in asar)
-    this.claudeExecutablePath = toAsarUnpackedPath(
-      path.join(path.dirname(require_.resolve('@anthropic-ai/claude-agent-sdk')), 'cli.js')
-    )
-    this.claudeProxyBootstrapPath = toAsarUnpackedPath(path.join(app.getAppPath(), 'out', 'proxy', 'index.js'))
-  }
-
   async invoke(
     prompt: string,
     session: GetAgentSessionResponse,
@@ -119,6 +112,23 @@ class ClaudeCodeService implements AgentServiceInterface {
       aiStream.emit('data', {
         type: 'error',
         error: new Error('No accessible paths defined for the agent session')
+      })
+      return aiStream
+    }
+
+    let claudeExecutablePath: string
+    try {
+      claudeExecutablePath = resolveClaudeExecutablePath()
+    } catch (error) {
+      const executableError = error instanceof Error ? error : new Error(String(error))
+      logger.error('Failed to resolve Claude Code executable', {
+        error: { name: executableError.name, message: executableError.message }
+      })
+      setImmediate(() => {
+        aiStream.emit('data', {
+          type: 'error',
+          error: executableError
+        })
       })
       return aiStream
     }
@@ -172,9 +182,7 @@ class ClaudeCodeService implements AgentServiceInterface {
 
     // Providers like Ollama and LM Studio don't require real API keys,
     // but the Claude Agent SDK needs a non-empty placeholder value
-    if (!provider.apiKey) {
-      provider.apiKey = provider.id
-    }
+    const apiKey = getFirstConfiguredApiKey(provider.apiKey) || provider.id
 
     const apiConfig = await apiConfigService.get()
     const loginShellEnv = await getLoginShellEnvironment()
@@ -195,8 +203,10 @@ class ClaudeCodeService implements AgentServiceInterface {
       return withoutTrailingApiVersion(provider.anthropicApiHost?.trim() || provider.apiHost)
     }
     const anthropicBaseUrl = resolveAnthropicBaseUrl()
+    const sdkModelId = with1mContextSuffix(modelInfo.modelId, provider.anthropicApiHost)
+    const customHeaders = getAnthropicCustomHeaders(provider.extra_headers)
 
-    const env = {
+    const baseEnv: Record<string, string> = {
       ...loginShellEnv,
       ...getProxyEnvironment(process.env),
       // prevent claude agent sdk using bedrock api
@@ -205,14 +215,15 @@ class ClaudeCodeService implements AgentServiceInterface {
       // ANTHROPIC_API_KEY: apiConfig.apiKey,
       // ANTHROPIC_AUTH_TOKEN: apiConfig.apiKey,
       // ANTHROPIC_BASE_URL: `http://${apiConfig.host}:${apiConfig.port}/${modelInfo.provider.id}`,
-      ANTHROPIC_API_KEY: provider.apiKey,
-      ANTHROPIC_AUTH_TOKEN: provider.apiKey,
+      ANTHROPIC_API_KEY: apiKey,
+      ANTHROPIC_AUTH_TOKEN: apiKey,
       ANTHROPIC_BASE_URL: anthropicBaseUrl,
-      ANTHROPIC_MODEL: modelInfo.modelId,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: modelInfo.modelId,
-      ANTHROPIC_DEFAULT_SONNET_MODEL: modelInfo.modelId,
+      ANTHROPIC_CUSTOM_HEADERS: customHeaders,
+      ANTHROPIC_MODEL: sdkModelId,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: sdkModelId,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: sdkModelId,
       // TODO: support set small model in UI
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: modelInfo.modelId,
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: sdkModelId,
       ELECTRON_RUN_AS_NODE: '1',
       ELECTRON_NO_ATTACH_CONSOLE: '1',
       // Set CLAUDE_CONFIG_DIR to app's userData directory to avoid path encoding issues
@@ -222,46 +233,21 @@ class ClaudeCodeService implements AgentServiceInterface {
       // project-level skill loading layer — no need to point CLAUDE_CONFIG_DIR at the workspace.
       CLAUDE_CONFIG_DIR: path.join(app.getPath('userData'), '.claude'),
       ENABLE_TOOL_SEARCH: 'auto',
-      CHERRY_STUDIO_BUN_PATH: bunPath,
-      ...(customGitBashPath ? { CLAUDE_CODE_GIT_BASH_PATH: customGitBashPath } : {})
+      CHERRY_STUDIO_BUN_PATH: bunPath
     }
 
-    // Merge user-defined environment variables from session configuration
-    const userEnvVars = session.configuration?.env_vars
-    if (userEnvVars && typeof userEnvVars === 'object') {
-      const BLOCKED_ENV_KEYS = new Set([
-        'ANTHROPIC_API_KEY',
-        'ANTHROPIC_AUTH_TOKEN',
-        'ANTHROPIC_BASE_URL',
-        'ANTHROPIC_MODEL',
-        'ANTHROPIC_DEFAULT_OPUS_MODEL',
-        'ANTHROPIC_DEFAULT_SONNET_MODEL',
-        'ANTHROPIC_DEFAULT_HAIKU_MODEL',
-        'ELECTRON_RUN_AS_NODE',
-        'ELECTRON_NO_ATTACH_CONSOLE',
-        'CLAUDE_CONFIG_DIR',
-        'CLAUDE_CODE_USE_BEDROCK',
-        'CLAUDE_CODE_GIT_BASH_PATH',
-        'CHERRY_STUDIO_NODE_PROXY_RULES',
-        'CHERRY_STUDIO_NODE_PROXY_BYPASS_RULES',
-        'NODE_OPTIONS',
-        '__PROTO__',
-        'CONSTRUCTOR',
-        'PROTOTYPE'
-      ])
-      for (const [key, value] of Object.entries(userEnvVars)) {
-        const upperKey = key.toUpperCase()
-        if (BLOCKED_ENV_KEYS.has(upperKey)) {
-          logger.warn('Blocked user env var override for system-critical variable', { key })
-        } else if (typeof value === 'string') {
-          env[key] = value
-        }
-      }
+    const shellEnvironment = withPreferredWindowsShellEnvironment(baseEnv, customGitBashPath)
+    const userEnvironment = mergeUserEnvironmentVariables(shellEnvironment.env, session.configuration?.env_vars)
+    const env = userEnvironment.env
+
+    for (const key of userEnvironment.blockedKeys) {
+      logger.warn('Blocked user env var override for system-critical variable', { key })
     }
 
     const errorChunks: string[] = []
 
-    const sessionAllowedTools = new Set<string>(session.allowed_tools ?? [])
+    const runtimeAllowedTools = getRuntimeAllowedTools(session.allowed_tools, isWin ? 'win32' : process.platform)
+    const sessionAllowedTools = new Set<string>(runtimeAllowedTools ?? [])
     const autoAllowTools = new Set<string>([...DEFAULT_AUTO_ALLOW_TOOLS, ...sessionAllowedTools])
     const normalizeToolName = (name: string) => (name.startsWith('builtin_') ? name.slice('builtin_'.length) : name)
 
@@ -476,48 +462,15 @@ class ClaudeCodeService implements AgentServiceInterface {
       cwd,
       env,
       // model: modelInfo.modelId,
-      pathToClaudeCodeExecutable: this.claudeExecutablePath,
-      spawnClaudeCodeProcess: (spawnOptions) => {
-        const childEnv = { ...spawnOptions.env } as NodeJS.ProcessEnv
-
-        // Ensure the child process can resolve native modules (e.g. @img/sharp)
-        // that live in asar.unpacked alongside the SDK
-        childEnv.NODE_PATH = toAsarUnpackedPath(path.join(app.getAppPath(), 'node_modules'))
-
-        let execArgv = process.execArgv
-
-        const activeProxyConfig = getNodeProxyConfigFromEnvironment(childEnv)
-        if (activeProxyConfig) {
-          const proxyProtocol = getProxyProtocol(activeProxyConfig.proxyRules)
-
-          logger.info('Injecting proxy into Claude Code child process', {
-            proxyProtocol,
-            proxyRules: activeProxyConfig.proxyRules,
-            proxyBypassRules: activeProxyConfig.proxyBypassRules,
-            proxyBootstrapPath: this.claudeProxyBootstrapPath
-          })
-
-          execArgv = [...process.execArgv, '--disable-warning=UNDICI-EHPA', '--require', this.claudeProxyBootstrapPath]
-        }
-
-        const child = fork(spawnOptions.args[0], spawnOptions.args.slice(1), {
-          cwd: spawnOptions.cwd,
-          env: childEnv,
-          execArgv,
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-          signal: spawnOptions.signal
-        })
-        child.stderr?.on('data', (data: Buffer) => {
-          const text = data.toString()
-          logger.warn('claude stderr', { chunk: text })
-          errorChunks.push(text)
-        })
-        return child as unknown as SpawnedProcess
+      pathToClaudeCodeExecutable: claudeExecutablePath,
+      stderr: (chunk: string) => {
+        logger.warn('claude stderr', { chunk })
+        errorChunks.push(chunk)
       },
       systemPrompt: assistantSystemPrompt
         ? assistantSystemPrompt
         : soulSystemPrompt
-          ? `${soulSystemPrompt}${channelSecurityBlock}\n\n${getLanguageInstruction()}`
+          ? `${soulSystemPrompt}${session.instructions ? `\n\n${session.instructions}` : ''}${channelSecurityBlock}\n\n${getLanguageInstruction()}`
           : {
               type: 'preset',
               preset: 'claude_code',
@@ -530,7 +483,7 @@ class ClaudeCodeService implements AgentServiceInterface {
       includePartialMessages: true,
       permissionMode: session.configuration?.permission_mode,
       maxTurns: session.configuration?.max_turns,
-      allowedTools: session.allowed_tools,
+      allowedTools: runtimeAllowedTools,
       plugins,
       canUseTool,
       hooks: {
@@ -541,10 +494,13 @@ class ClaudeCodeService implements AgentServiceInterface {
         ]
       },
       disallowedTools: [
-        ...GLOBALLY_DISALLOWED_TOOLS,
-        ...(soulEnabled ? SOUL_MODE_DISALLOWED_TOOLS : []),
-        // Cherry Assistant is a read-only guide; it should not ask users questions via tool
-        ...(isAssistant ? ['AskUserQuestion'] : [])
+        ...new Set([
+          ...GLOBALLY_DISALLOWED_TOOLS,
+          ...shellEnvironment.disallowedTools,
+          ...(soulEnabled ? SOUL_MODE_DISALLOWED_TOOLS : []),
+          // Cherry Assistant is a read-only guide; it should not ask users questions via tool
+          ...(isAssistant ? ['AskUserQuestion'] : [])
+        ])
       ],
       ...(thinkingOptions?.effort ? { effort: thinkingOptions.effort } : {}),
       ...(thinkingOptions?.thinking ? { thinking: thinkingOptions.thinking } : {})
@@ -570,12 +526,10 @@ class ClaudeCodeService implements AgentServiceInterface {
       options.strictMcpConfig = true
     }
 
-    // Inject @cherry/browser MCP for all agents (replaces SDK built-in WebSearch/WebFetch)
     if (!options.mcpServers) options.mcpServers = {}
-    const browserServer = new BrowserServer()
-    options.mcpServers.browser = { type: 'sdk', name: '@cherry/browser', instance: browserServer.mcpServer }
 
-    // Inject Exa MCP for structured web search (free tier, no API key required)
+    // Inject Exa MCP for structured web search (free tier, no API key required).
+    // Replaces the SDK built-in WebSearch/WebFetch tools disabled via GLOBALLY_DISALLOWED_TOOLS.
     options.mcpServers.exa = {
       type: 'http',
       url: 'https://mcp.exa.ai/mcp'
