@@ -18,7 +18,8 @@ const THEME_PREFERENCE_OPTIONS = { optimistic: false } as const
 const tailwindThemeChange = (theme: ThemeMode) => {
   const root = window.document.documentElement
   root.classList.remove('light', 'dark')
-  root.classList.add(theme)
+  const validTheme = theme === ThemeMode.dark ? ThemeMode.dark : ThemeMode.light
+  root.classList.add(validTheme)
 }
 
 const getSystemTheme = () =>
@@ -37,7 +38,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const { initUserTheme } = useUserTheme()
 
   // listen for theme updates from main process
-  useIpcOn('system.native_theme_updated', (actualTheme) => setActualTheme(actualTheme))
+  useIpcOn('system.native_theme_updated', (theme) => {
+    if (theme === ThemeMode.dark || theme === ThemeMode.light) {
+      setActualTheme(theme)
+    }
+  })
 
   const toggleTheme = () => {
     const nextTheme = {
@@ -88,7 +93,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       .request('system.get_native_theme')
       .then((theme) => {
         if (active) {
-          setActualTheme(theme)
+          const resolved = theme === ThemeMode.dark || theme === ThemeMode.light ? theme : getSystemTheme()
+          setActualTheme(resolved)
         }
       })
       .catch((error) => logger.error('Failed to resolve system theme', error as Error))

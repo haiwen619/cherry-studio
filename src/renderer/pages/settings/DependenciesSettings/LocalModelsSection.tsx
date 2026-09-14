@@ -205,7 +205,7 @@ const LocalModelsSection: FC = () => {
     void ipcApi
       .request('local_model.list')
       .then((result) => {
-        if (mounted) setModels(result.models)
+        if (mounted) setModels(result?.models ?? [])
       })
       .catch((error) => logger.warn('Failed to list local models', error as Error))
     return () => {
@@ -213,8 +213,9 @@ const LocalModelsSection: FC = () => {
     }
   }, [])
 
+  const safeModels = Array.isArray(models) ? models : []
   // The current models share onnxruntime, so they are unsupported together on Intel Mac.
-  const unsupported = models.length > 0 && models.every((model) => statuses[model.id] === 'unsupported')
+  const unsupported = safeModels.length > 0 && safeModels.every((model) => statuses[model.id] === 'unsupported')
 
   return (
     <div className="min-w-0">
@@ -246,7 +247,7 @@ const LocalModelsSection: FC = () => {
         </div>
       ) : (
         <div role="list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {models.map((model) => (
+          {safeModels.map((model) => (
             <ModelCard key={model.id} id={model.id} capability={model.capability} onStatusChange={handleStatusChange} />
           ))}
         </div>

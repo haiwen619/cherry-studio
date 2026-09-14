@@ -594,8 +594,8 @@ export function ModelSelector(props: ModelSelectorProps) {
         return
       }
 
-      emitSelection([item.modelId])
       setOpen(false)
+      emitSelection([item.modelId])
     },
     [emitSelection, isSelectionDisabled, multiple, rawSelectedModelIds, setOpen]
   )

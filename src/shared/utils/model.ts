@@ -13,79 +13,83 @@
 
 import { endpointImpliedCapability, MODALITY, VENDOR_PATTERNS } from '@cherrystudio/provider-registry'
 import { CHERRYAI_PROVIDER_ID, isManagedCherryAiDefaultModel } from '@shared/data/presets/cherryai'
-import type { Model } from '@shared/data/types/model'
+import type { Model, ModelCapability } from '@shared/data/types/model'
 import { MODEL_CAPABILITY, parseUniqueModelId } from '@shared/data/types/model'
+
+const hasCap = (model: Model | null | undefined, cap: ModelCapability): boolean =>
+  Boolean(Array.isArray(model?.capabilities) && model.capabilities.includes(cap))
 
 /** Check if model has reasoning capability */
 export const isReasoningModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.REASONING) || model.reasoning != null
+  hasCap(model, MODEL_CAPABILITY.REASONING) || model?.reasoning != null
 
 /** Check if model supports vision/image input */
 export const isVisionModel = (model: Model): boolean =>
-  !!(model.capabilities.includes(MODEL_CAPABILITY.IMAGE_RECOGNITION) || model.inputModalities?.includes(MODALITY.IMAGE))
+  !!(hasCap(model, MODEL_CAPABILITY.IMAGE_RECOGNITION) || model?.inputModalities?.includes(MODALITY.IMAGE))
 
 export const isVideoModel = (model: Model): boolean =>
-  !!(model.capabilities.includes(MODEL_CAPABILITY.VIDEO_RECOGNITION) || model.inputModalities?.includes(MODALITY.VIDEO))
+  !!(hasCap(model, MODEL_CAPABILITY.VIDEO_RECOGNITION) || model?.inputModalities?.includes(MODALITY.VIDEO))
 
 export const isAudioModel = (model: Model): boolean =>
-  !!(model.capabilities.includes(MODEL_CAPABILITY.AUDIO_RECOGNITION) || model.inputModalities?.includes(MODALITY.AUDIO))
+  !!(hasCap(model, MODEL_CAPABILITY.AUDIO_RECOGNITION) || model?.inputModalities?.includes(MODALITY.AUDIO))
 
 /** Check if model is an embedding model */
-export const isEmbeddingModel = (model: Model): boolean => model.capabilities.includes(MODEL_CAPABILITY.EMBEDDING)
+export const isEmbeddingModel = (model: Model): boolean => hasCap(model, MODEL_CAPABILITY.EMBEDDING)
 
 /** Check if model is a reranking model */
 export const isRerankModel = (model: { capabilities?: readonly unknown[] | null }): boolean =>
-  model.capabilities?.includes(MODEL_CAPABILITY.RERANK) ?? false
+  Boolean(Array.isArray(model?.capabilities) && model.capabilities.includes(MODEL_CAPABILITY.RERANK))
 
 /** Check if model supports function calling / tool use */
 export const isFunctionCallingModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.FUNCTION_CALL)
+  hasCap(model, MODEL_CAPABILITY.FUNCTION_CALL)
 
 /** Check if model supports image generation */
 export const isGenerateImageModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.IMAGE_GENERATION)
+  hasCap(model, MODEL_CAPABILITY.IMAGE_GENERATION)
 
 export const isFreeModel = (model: Pick<Model, 'id' | 'name' | 'providerId'>): boolean => {
-  if (model.providerId === CHERRYAI_PROVIDER_ID) {
+  if (model?.providerId === CHERRYAI_PROVIDER_ID) {
     return true
   }
 
-  return (model.id + model.name).toLowerCase().includes('free')
+  return (String(model?.id ?? '') + String(model?.name ?? '')).toLowerCase().includes('free')
 }
 
 export const isGenerateVideoModel = (model: Model): boolean =>
-  !!model.capabilities.includes(MODEL_CAPABILITY.VIDEO_GENERATION)
+  hasCap(model, MODEL_CAPABILITY.VIDEO_GENERATION)
 
 export const isGenerateAudioModel = (model: Model): boolean =>
-  !!model.capabilities.includes(MODEL_CAPABILITY.AUDIO_GENERATION)
+  hasCap(model, MODEL_CAPABILITY.AUDIO_GENERATION)
 
 export const isEditImageModel = (model: Model): boolean =>
-  !!(model.capabilities.includes(MODEL_CAPABILITY.IMAGE_GENERATION) && model.inputModalities?.includes(MODALITY.IMAGE))
+  !!(hasCap(model, MODEL_CAPABILITY.IMAGE_GENERATION) && model?.inputModalities?.includes(MODALITY.IMAGE))
 
 // Prefer the explicit AUDIO_TRANSCRIPT capability. Catalogs that only expose
 // modalities still identify a dedicated ASR model by audio input + text output
 // with no text input. The no-text-input guard keeps multimodal chat LLMs
 // (Gemini, GPT-4o, …) selectable.
 export const isSpeechToTextModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.AUDIO_TRANSCRIPT) ||
-  (model.capabilities.includes(MODEL_CAPABILITY.AUDIO_RECOGNITION) &&
-    model.inputModalities?.includes(MODALITY.AUDIO) === true &&
-    !model.inputModalities.includes(MODALITY.TEXT) &&
-    model.outputModalities?.includes(MODALITY.TEXT) === true)
+  hasCap(model, MODEL_CAPABILITY.AUDIO_TRANSCRIPT) ||
+  (hasCap(model, MODEL_CAPABILITY.AUDIO_RECOGNITION) &&
+    model?.inputModalities?.includes(MODALITY.AUDIO) === true &&
+    !model?.inputModalities?.includes(MODALITY.TEXT) &&
+    model?.outputModalities?.includes(MODALITY.TEXT) === true)
 
 // Mirror of `isSpeechToTextModel`: a dedicated text-to-speech model is identified by
 // the explicit AUDIO_GENERATION capability only. Producing audio as an *output
 // modality* does NOT make a model text-to-speech — multimodal chat LLMs can emit audio
 // yet still chat, and keying on the modality wrongly classified them as non-chat.
 export const isTextToSpeechModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.AUDIO_GENERATION)
+  hasCap(model, MODEL_CAPABILITY.AUDIO_GENERATION)
 
 /** Check if model is a dedicated text-to-image model (no text chat) */
 export const isTextToImageModel = (model: Model): boolean =>
-  model.capabilities.includes(MODEL_CAPABILITY.IMAGE_GENERATION) &&
-  !model.capabilities.includes(MODEL_CAPABILITY.REASONING)
+  hasCap(model, MODEL_CAPABILITY.IMAGE_GENERATION) &&
+  !hasCap(model, MODEL_CAPABILITY.REASONING)
 
 export const isNonChatModel = (model: Model): boolean =>
+  !model ||
   endpointImpliedCapability(model.endpointTypes?.[0]) != null ||
   isEmbeddingModel(model) ||
   isRerankModel(model) ||

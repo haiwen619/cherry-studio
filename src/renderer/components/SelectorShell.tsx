@@ -445,6 +445,7 @@ export function SelectorShell({
               maxWidth: 'var(--radix-popover-content-available-width)',
               height: toCssSize(contentHeight),
               maxHeight: toCssSize(maxContentHeight),
+              ...(mountStrategy === 'lazy-keep' && !open ? { display: 'none' } : {}),
               ...style
             }}
             onInteractOutside={(event) => {

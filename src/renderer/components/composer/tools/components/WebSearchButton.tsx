@@ -51,7 +51,7 @@ const useWebSearchToolController = ({ assistantId, launcher }: Props) => {
   } = useWebSearchProviders()
   const [modelToolsPreferred] = usePreference('chat.web_search.model_tools_preferred')
 
-  const enableWebSearch = assistant?.settings.enableWebSearch ?? false
+  const enableWebSearch = assistant?.settings?.enableWebSearch ?? false
   const effectiveSearchProvider = resolveReadyWebSearchProvider(
     providers,
     defaultSearchKeywordsProvider,

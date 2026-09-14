@@ -143,10 +143,10 @@ export function useResourceLibrary({
   }, [])
 
   const allResources = useMemo<ResourceItem[]>(() => {
-    if (isAssistant) return baseAssistants.data.map(buildAssistantItem)
-    if (isAgent) return agents.data.map(buildAgentItem)
-    if (isPrompt) return prompts.data.map(buildPromptItem)
-    return skills.data.map(buildSkillItem)
+    if (isAssistant) return (Array.isArray(baseAssistants.data) ? baseAssistants.data : []).map(buildAssistantItem)
+    if (isAgent) return (Array.isArray(agents.data) ? agents.data : []).map(buildAgentItem)
+    if (isPrompt) return (Array.isArray(prompts.data) ? prompts.data : []).map(buildPromptItem)
+    return (Array.isArray(skills.data) ? skills.data : []).map(buildSkillItem)
   }, [
     isAssistant,
     isAgent,
@@ -162,12 +162,21 @@ export function useResourceLibrary({
   ])
 
   const filteredAssistantItems = useMemo(
-    () => filteredAssistants.data.map(buildAssistantItem),
+    () => (Array.isArray(filteredAssistants.data) ? filteredAssistants.data : []).map(buildAssistantItem),
     [filteredAssistants.data, buildAssistantItem]
   )
-  const agentItems = useMemo(() => agents.data.map(buildAgentItem), [agents.data, buildAgentItem])
-  const skillItems = useMemo(() => skills.data.map(buildSkillItem), [skills.data, buildSkillItem])
-  const promptItems = useMemo(() => prompts.data.map(buildPromptItem), [prompts.data, buildPromptItem])
+  const agentItems = useMemo(
+    () => (Array.isArray(agents.data) ? agents.data : []).map(buildAgentItem),
+    [agents.data, buildAgentItem]
+  )
+  const skillItems = useMemo(
+    () => (Array.isArray(skills.data) ? skills.data : []).map(buildSkillItem),
+    [skills.data, buildSkillItem]
+  )
+  const promptItems = useMemo(
+    () => (Array.isArray(prompts.data) ? prompts.data : []).map(buildPromptItem),
+    [prompts.data, buildPromptItem]
+  )
 
   const resources = useMemo<ResourceItem[]>(() => {
     let list: ResourceItem[]

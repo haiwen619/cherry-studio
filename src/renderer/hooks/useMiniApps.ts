@@ -163,10 +163,12 @@ export const useMiniApps = (options: { enabled?: boolean } = {}) => {
   // Main resolved `name` for the language at query time and the query is cached; a
   // language switch would otherwise leave every installed app under its old name.
   const rawApps: MiniApp[] = useMemo(
-    () =>
-      (data ?? []).map((app) =>
+    () => {
+      const list = Array.isArray(data) ? data : Array.isArray((data as any)?.items) ? (data as any).items : []
+      return list.map((app: any) =>
         app.kind === 'app' ? { ...app, name: resolveLocalizedText(app.nameI18n, language) } : app
-      ),
+      )
+    },
     [data, language]
   )
 

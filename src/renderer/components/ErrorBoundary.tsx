@@ -17,12 +17,20 @@ const DefaultFallback: ComponentType<FallbackProps> = (props: FallbackProps): Re
   const reload = async () => {
     await ipcApi.request('window.main.reload')
   }
+  const details = formatErrorDetails(error)
+  const err = error as any
+  const stack = err?.stack || ''
   return (
     <div className="flex w-full items-center justify-center p-2">
       <Alert
         message={t('error.boundary.default.message')}
         showIcon
-        description={formatErrorDetails(error)}
+        description={
+          <div className="max-h-[40vh] max-w-xl overflow-auto text-left text-xs whitespace-pre-wrap font-mono">
+            <div className="font-semibold">{details || String(error)}</div>
+            {stack && <div className="mt-2 text-muted-foreground opacity-80">{stack}</div>}
+          </div>
+        }
         type="error"
         action={
           <div className="flex items-center gap-2">
@@ -49,7 +57,18 @@ const ErrorBoundaryCustomized = ({
   onError?: (error: Error, info: ErrorInfo) => void
 }) => {
   const handleError = (error: Error, info: ErrorInfo) => {
-    logger.error('Caught a render error', error)
+    const err = error as any
+    const errName = err?.name || 'Error'
+    const errMsg = err?.message || String(error)
+    const errStack = err?.stack || ''
+    const compStack = info?.componentStack || ''
+    console.error(`[ErrorBoundary] ${errName}: ${errMsg}\n${errStack}\nComponentStack:${compStack}`)
+    logger.error(`Caught a render error: ${errName}: ${errMsg}`, {
+      name: errName,
+      message: errMsg,
+      stack: errStack,
+      componentStack: compStack
+    })
     onError?.(error, info)
   }
   return (

@@ -113,7 +113,7 @@ export function ProcessorPanel({
   }, [entry.key])
 
   const languageOptions = useMemo(() => {
-    if (!languages) {
+    if (!Array.isArray(languages) || languages.length === 0) {
       return []
     }
 

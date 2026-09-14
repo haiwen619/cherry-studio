@@ -66,7 +66,7 @@ export function useSkillCatalog(search?: string, enabled = true) {
   const refetch = useCallback(() => {
     void mutate()
   }, [mutate])
-  return { data: data ?? [], error, isLoading, isRefreshing: isValidating, refetch }
+  return { data: Array.isArray(data) ? data : [], error, isLoading, isRefreshing: isValidating, refetch }
 }
 
 async function refreshSkillsBestEffort(invalidate: ReturnType<typeof useInvalidateSkills>): Promise<void> {

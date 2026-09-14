@@ -19,15 +19,27 @@ export const WindowFatalFallback = ({ error }: FallbackProps) => {
   // never runs, and the leftover fixed full-viewport overlay would block clicks here.
   useEffect(() => {
     document.getElementById('spinner')?.remove()
-  }, [])
+    console.error('[WindowFatalFallback]', error)
+  }, [error])
+
+  const details = formatErrorDetails(error)
+  const err = error as any
+  const stack = err?.stack || ''
+  const componentStack = err?.componentStack || ''
 
   return (
     <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 p-4">
       <Alert
         type="error"
         message={i18n.t('error.boundary.default.message')}
-        description={formatErrorDetails(error)}
-        className="max-w-xl"
+        description={
+          <div className="max-h-[60vh] max-w-2xl overflow-auto text-left text-xs whitespace-pre-wrap font-mono">
+            <div className="font-semibold text-destructive">{details || String(error)}</div>
+            {stack && <div className="mt-2 text-muted-foreground opacity-90">{stack}</div>}
+            {componentStack && <div className="mt-2 text-muted-foreground opacity-75">{componentStack}</div>}
+          </div>
+        }
+        className="max-w-2xl"
       />
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={() => void ipcApi.request('system.toggle_dev_tools')}>
@@ -40,3 +52,4 @@ export const WindowFatalFallback = ({ error }: FallbackProps) => {
     </div>
   )
 }
+

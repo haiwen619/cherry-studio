@@ -905,7 +905,7 @@ const ChatComposerInner = ({
         effectiveSubmittedModel &&
         isOpenAIWebSearchModel(effectiveSubmittedModel) &&
         isGPT5SeriesReasoningModel(effectiveSubmittedModel) &&
-        assistant?.settings.enableWebSearch
+        assistant?.settings?.enableWebSearch
       ) {
         toast.warning(t('chat.web_search.warning.openai'))
         return
@@ -925,7 +925,7 @@ const ChatComposerInner = ({
           logger.warn('Failed to persist reasoning effort', { error })
         })
     },
-    [assistant?.settings.enableWebSearch, effectiveSubmittedModel, selectedAssistantId, t, updateAssistantSettings]
+    [assistant?.settings?.enableWebSearch, effectiveSubmittedModel, selectedAssistantId, t, updateAssistantSettings]
   )
   const handleReasoningSummaryChange = useCallback(
     (summary: ReasoningSummary) => {

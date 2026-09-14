@@ -99,8 +99,11 @@ export function ChatConversationControls({
   const handleMentionedModelSelect = useCallback(
     (nextModels: Model[]) => {
       onMentionedModelsSelect(nextModels)
+      if (!mentionedModelMultiSelectMode) {
+        setMentionedModelSelectorOpen(false)
+      }
     },
-    [onMentionedModelsSelect]
+    [mentionedModelMultiSelectMode, onMentionedModelsSelect]
   )
   const handleMentionedModelMultiSelectModeChange = useCallback(
     (nextEnabled: boolean) => {
