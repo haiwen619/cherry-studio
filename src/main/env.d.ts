@@ -1,9 +1,5 @@
-/// <reference types="vite/client" />
-
 interface ImportMetaEnv {
-  VITE_MAIN_BUNDLE_ID: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
+  readonly MAIN_VITE_CHERRYAI_CLIENT_SECRET: string
+  readonly MAIN_VITE_CHERRY_CLOUD_CLIENT_SECRET?: string
+  readonly MAIN_VITE_CHERRY_CLOUD_API_ORIGIN?: string
 }
